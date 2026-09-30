@@ -17,7 +17,6 @@ import {
   MessageSquareText,
   RotateCcw,
   ShieldCheck,
-  Zap,
   UserRound,
   X,
 } from "lucide-react";
@@ -404,7 +403,7 @@ function OperatorView({ state, dispatch, onPreviewFollowup, onToast }: { state: 
               </div>
             </div>
             <div className="hub-actions">
-              <Button className="button-primary dispatch-button" onClick={() => onPreviewFollowup(activeIntervention.id)} size="lg" type="button"><Zap size={15} /><SlackMark size={17} />Dispatch Slack Nudge</Button>
+              <Button className="button-primary dispatch-button" onClick={() => onPreviewFollowup(activeIntervention.id)} size="lg" type="button"><SlackMark size={17} />Dispatch Slack Nudge</Button>
               {accessItem && <Button className="button-secondary" onClick={() => { dispatch({ type: "resolve-escalation", id: activeIntervention.id }); onToast("Access marked provided in the illustrative demo"); }} size="lg" type="button" variant="outline"><Check size={15} />Mark access provided</Button>}
             </div>
             <p className="hub-disclaimer">Planned MAVI Slack bot · demo action only, no message sent.</p>
