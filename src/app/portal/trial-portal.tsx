@@ -19,6 +19,7 @@ import {
   LockKeyhole,
   MessageSquareText,
   RotateCcw,
+  Slack,
   ShieldCheck,
   UserRound,
   X,
@@ -183,9 +184,9 @@ function TopBar({ state, dispatch, onReset }: { state: TrialOSState; dispatch: R
   );
 }
 
-function TrialHeading({ trial, day, role, onDayChange }: { trial: TrialWorkspace; day: number; role: UserRole; onDayChange: (day: number) => void }) {
+function TrialHeading({ trial, role }: { trial: TrialWorkspace; role: UserRole }) {
   const title = role === "candidate" ? `Welcome back, ${trial.candidate.handle}` : role === "operator" ? `${trial.client.name} trial` : trial.client.name;
-  const subtitle = role === "candidate" ? `${trial.client.name} · Working trial` : role === "operator" ? "MAVI operations" : `14-day working trial · Day ${day} of 14`;
+  const subtitle = role === "candidate" ? `${trial.client.name} · Working trial` : role === "operator" ? "MAVI operations" : "14-day working trial";
   return (
     <div className="trial-heading">
       <div>
@@ -196,32 +197,52 @@ function TrialHeading({ trial, day, role, onDayChange }: { trial: TrialWorkspace
         </div>
         <p className="heading-subtitle">{subtitle}</p>
       </div>
-      {role !== "customer" && <DayStepper day={day} onChange={onDayChange} />}
     </div>
   );
 }
 
-function DayStepper({ day, onChange }: { day: number; onChange: (day: number) => void }) {
-  return <div aria-label="Choose trial day" className="heading-day-stepper" role="group"><button aria-label="Previous day" disabled={day <= 1} onClick={() => onChange(day - 1)} type="button"><ChevronLeft size={15} /></button><span>Day <b>{day}</b> of 14</span><button aria-label="Next day" disabled={day >= 14} onClick={() => onChange(day + 1)} type="button"><ChevronRight size={15} /></button></div>;
-}
+function TrialTimeline({ day, onChange }: { day: number; onChange: (day: number) => void }) {
+  const [celebratingDay, setCelebratingDay] = useState<number | null>(null);
+  const celebrationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const phase = getPhase(day);
+  const progress = ((day - 1) / 13) * 100;
+  const milestones = [3, 8, 14];
 
-function DayRail({ day, onChange }: { day: number; onChange: (day: number) => void }) {
-  const active = getPhase(day);
+  useEffect(() => () => {
+    if (celebrationTimer.current) clearTimeout(celebrationTimer.current);
+  }, []);
+
+  function setDay(nextDay: number) {
+    if (nextDay === day) return;
+    onChange(nextDay);
+    if (!milestones.includes(nextDay)) return setCelebratingDay(null);
+    setCelebratingDay(nextDay);
+    if (celebrationTimer.current) clearTimeout(celebrationTimer.current);
+    celebrationTimer.current = setTimeout(() => setCelebratingDay(null), 850);
+  }
+
   return (
-    <section aria-label="Trial day navigation" className="day-rail">
-      <div className="day-rail-label"><CalendarDays size={16} /><span>Trial timeline</span></div>
-      <div aria-label="Trial phases" className="phase-rail">
-        {phases.map((phase, index) => {
-          const activeIndex = phases.findIndex((item) => item.id === active);
-          return (
-            <button className={`phase-stop ${phase.id === active ? "current" : index < activeIndex ? "complete" : ""}`} key={phase.id} onClick={() => onChange(phase.id === "setup" ? 2 : phase.id === "delivery" ? 5 : 14)} type="button">
-              <span className="phase-marker">{index < activeIndex ? <Check size={12} /> : <span />}</span>
-              <span className="phase-stop-text"><b>{phase.label}</b><small>{phase.days}</small></span>
-            </button>
-          );
-        })}
+    <section aria-label="14-day trial timeline" className="trial-timeline">
+      <div className="timeline-header">
+        <div className="timeline-title"><CalendarDays aria-hidden="true" size={17} /><strong>Trial timeline</strong></div>
+        <div aria-label="Choose trial day" className="timeline-day-control" role="group">
+          <Button aria-label="Previous day" className="timeline-nav" disabled={day <= 1} onClick={() => setDay(day - 1)} size="icon" type="button" variant="outline"><ChevronLeft size={16} /></Button>
+          <span>Day <b>{day}</b> of 14</span>
+          <Button aria-label="Next day" className="timeline-nav" disabled={day >= 14} onClick={() => setDay(day + 1)} size="icon" type="button" variant="outline"><ChevronRight size={16} /></Button>
+        </div>
       </div>
-      <div className="day-control"><span>Day <b>{day}</b> of 14</span></div>
+      <div className="timeline-slider-wrap">
+        <div aria-hidden="true" className="timeline-track"><span className="timeline-track-base" /><span className="timeline-track-fill" style={{ width: `${progress}%` }} />
+          {milestones.map((milestone) => <span className={`timeline-milestone ${day >= milestone ? "reached" : ""}`} key={milestone} style={{ left: `${((milestone - 1) / 13) * 100}%` }} />)}
+          {celebratingDay !== null && <span aria-hidden="true" className="timeline-confetti" key={celebratingDay} style={{ left: `${progress}%` }}>{Array.from({ length: 8 }, (_, index) => <i key={index} />)}</span>}
+        </div>
+        <input aria-label="Trial day" aria-valuetext={`Day ${day} of 14 · ${phases.find((item) => item.id === phase)?.label}`} className="timeline-range" max={14} min={1} onChange={(event) => setDay(Number(event.target.value))} step={1} style={{ "--timeline-progress": `${progress}%` } as React.CSSProperties} type="range" value={day} />
+      </div>
+      <div aria-hidden="true" className="timeline-day-labels">{Array.from({ length: 14 }, (_, index) => <span className={index + 1 === day ? "is-current" : ""} key={index}>{index + 1}</span>)}</div>
+      <div className="timeline-phases">
+        {phases.map((item) => <div className={`timeline-phase ${item.id === phase ? "is-current" : ""}`} key={item.id}><b>{item.name}</b><span>{item.days}</span></div>)}
+      </div>
+      <span aria-live="polite" className="sr-only">{celebratingDay ? `${celebratingDay === 14 ? "Trial complete" : `${phases.find((item) => item.id === getPhase(celebratingDay))?.label} milestone`} · Day ${celebratingDay}` : ""}</span>
     </section>
   );
 }
@@ -406,7 +427,6 @@ function CandidateView({ state, dispatch, onModal }: { state: TrialOSState; disp
     <div className="role-workspace">
       <div className="role-intro candidate-intro">
         <div><h2>Your workday, without the guesswork. <span className="heading-context">CANDIDATE VIEW</span></h2><p>Today’s priorities and the tools you’re waiting on, in one place.</p></div>
-        <button className={`button-secondary ${blocked ? "button-danger-outline" : ""}`} onClick={() => onModal("candidate")} type="button"><CircleHelp size={16} />{blocked ? "View blocker" : "I’m blocked"}</button>
       </div>
       <div className="candidate-day-banner"><div className="day-tile"><span>DAY</span><b>{state.activeDay}</b></div><div><h3>{state.trial.client.deliverable}</h3><p>Work hours overlap: {state.trial.candidate.overlap}</p></div><div className="focus-side"><span>{tasks.filter((task) => task.completed).length} / {tasks.length} tasks</span><span>{phase === "setup" ? "Get access ready" : phase === "delivery" ? "First milestone" : "Final review"}</span></div></div>
       <section className="today-panel candidate-tasks">
@@ -463,7 +483,7 @@ function OperatorView({ state, dispatch, onModal, onPreviewFollowup, onToast }: 
                   <div className="intervention-main"><div className="intervention-meta"><span>{sourceLabel}</span><span>DAY {item.day}</span></div><h3>{item.message}</h3><p>{accessItem ? `${accessItem.updatedAtHoursAgo}h elapsed · ${accessItem.updatedAtHoursAgo >= ACCESS_SLA_WARNING_HOURS ? `${ACCESS_SLA_WARNING_HOURS}h SLA warning exceeded` : `SLA warning at ${ACCESS_SLA_WARNING_HOURS}h`}` : candidateBlocker?.issue ?? customerNote?.note ?? "Review and follow up with the trial participants."}</p>
                     {trial.interventions.some((entry) => entry.message.includes(item.id)) && <span className="intervention-logged"><Check size={13} />Nudge logged in demo</span>}
                   </div>
-                  <div className="intervention-actions"><button className="small-link" onClick={() => onPreviewFollowup(item.id)} type="button">Preview nudge</button><button className="resolve-button" onClick={() => dispatch({ type: "resolve-escalation", id: item.id })} type="button"><Check size={14} />{accessItem ? "Mark provided" : "Resolve"}</button></div>
+                  <div className="intervention-actions"><Button className="slack-nudge-button" onClick={() => onPreviewFollowup(item.id)} size="sm" type="button" variant="outline"><Slack aria-hidden="true" size={15} />Send nudge to Slack</Button><button className="resolve-button" onClick={() => dispatch({ type: "resolve-escalation", id: item.id })} type="button"><Check size={14} />{accessItem ? "Mark provided" : "Resolve"}</button></div>
                 </article>
               );
             })}
@@ -506,21 +526,21 @@ function TrialDialog({ modal, state, dispatch, interventionId, onClose, onToast 
   }
 
   const isConvert = modal === "convert";
-  const title = modal === "customer" ? "A private note to MAVI" : modal === "candidate" ? activeBlocker ? "Your blocker is with MAVI" : "Tell MAVI what’s blocking you" : modal === "pulse" ? "How is the trial going?" : modal === "convert" ? "Ready to continue together?" : "Preview an operator follow-up";
-  const helper = modal === "customer" ? "Only the MAVI operator sees this note in the demo. Your candidate will not." : modal === "candidate" ? activeBlocker ? "The MAVI operator can see this blocker. The customer cannot." : "This goes to the MAVI operator in the demo. The customer does not see your private blocker." : modal === "pulse" ? "Your pulse is shared with MAVI so they can help keep the trial on track." : modal === "convert" ? "This confirms the conversion in the demo only. No contract or billing is created." : "Review the suggested message, then log or simulate its outcome. Nothing is sent to an external service.";
+  const title = modal === "customer" ? "A private note to MAVI" : modal === "candidate" ? activeBlocker ? "Your blocker is with MAVI" : "Tell MAVI what’s blocking you" : modal === "pulse" ? "How is the trial going?" : modal === "convert" ? "Ready to continue together?" : "Send a nudge to Slack";
+  const helper = modal === "customer" ? "Only the MAVI operator sees this note in the demo. Your candidate will not." : modal === "candidate" ? activeBlocker ? "The MAVI operator can see this blocker. The customer cannot." : "This goes to the MAVI operator in the demo. The customer does not see your private blocker." : modal === "pulse" ? "Your pulse is shared with MAVI so they can help keep the trial on track." : modal === "convert" ? "This confirms the conversion in the demo only. No contract or billing is created." : "Planned MAVI Slack bot: in a connected workspace, it would send this follow-up to the trial team. This illustrative preview does not send a Slack message.";
   return (
     <Dialog onOpenChange={(open) => { if (!open) onClose(); }} open={Boolean(modal)}>
       <DialogContent className="trial-dialog" showCloseButton={false}>
       <form onSubmit={submit}>
         <div className="dialog-head"><span className="dialog-icon">{isConvert ? <BadgeCheck size={18} /> : modal === "candidate" ? <CircleHelp size={18} /> : <MessageSquareText size={18} />}</span><button aria-label="Close" className="icon-button" onClick={onClose} type="button"><X size={17} /></button></div>
         <DialogTitle className="dialog-title" id="dialog-title">{title}</DialogTitle><DialogDescription className="dialog-helper">{helper}</DialogDescription>
-        {modal === "slack" && <div className="slack-preview"><div className="slack-preview-head"><span><MessageSquareText size={15} />Illustrative Slack preview</span><b>DEMO</b></div><div className="slack-preview-message"><strong>MAVI trial assistant <span>APP</span></strong><p>{accessItem ? `${accessItem.name} has been waiting ${elapsedLabel(accessItem.updatedAtHoursAgo)}. Can the trial owner confirm when access is available so ${state.trial.candidate.handle} can continue?` : intervention?.source === "CANDIDATE" ? "A private candidate blocker needs operator follow-up." : intervention?.source === "CUSTOMER" ? "A private customer note needs operator follow-up." : intervention?.message ?? "Review this trial and choose a follow-up."}</p><small>Preview only · no message sent</small></div></div>}
+        {modal === "slack" && <div className="slack-preview"><div className="slack-preview-head"><span><Slack aria-hidden="true" size={16} />Illustrative Slack message</span><b>DEMO</b></div><div className="slack-channel"><span>#</span> trial-athena <small>illustrative channel</small></div><div className="slack-message-row"><div aria-hidden="true" className="slack-bot-avatar"><MaviMark /></div><div className="slack-message-content"><div className="slack-message-meta"><strong>MAVI Trial Bot</strong><span className="slack-app-badge">APP</span><time>Now</time></div><p>{accessItem ? `${accessItem.name} has been waiting ${elapsedLabel(accessItem.updatedAtHoursAgo)}. Can the trial owner confirm when access is available so ${state.trial.candidate.handle} can continue?` : intervention?.source === "CANDIDATE" ? "A private candidate blocker needs operator follow-up." : intervention?.source === "CUSTOMER" ? "A private customer update needs operator follow-up." : intervention?.message ?? "Review this trial and choose a follow-up."}</p></div></div><div className="slack-preview-note">Demo preview · no message sent</div></div>}
         {modal === "customer" && <label className="form-label">What do you need help with?<Select onValueChange={setCategory} value={category}><SelectTrigger aria-label="Feedback category" className="form-select"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Access delay">Access delay</SelectItem><SelectItem value="Communication cadence">Communication cadence</SelectItem><SelectItem value="Technical quality">Technical quality</SelectItem></SelectContent></Select></label>}
         {modal === "candidate" && activeBlocker ? <div className="blocker-receipt"><span>OPEN BLOCKER · DAY {activeBlocker.day}</span><b>{activeBlocker.tool}</b><p>{activeBlocker.issue}</p></div> : null}
         {modal === "candidate" && !activeBlocker && <label className="form-label">Which tool is blocking you?<Select onValueChange={setTool} value={tool}><SelectTrigger aria-label="Blocked tool" className="form-select"><SelectValue /></SelectTrigger><SelectContent>{["NetSuite", "Ramp", "Shopify", "QuickBooks", "Stripe", "Slack", "Other"].map((name) => <SelectItem key={name} value={name}>{name}</SelectItem>)}</SelectContent></Select></label>}
         {modal === "pulse" && <fieldset className="pulse-options"><legend>How is the candidate doing?</legend>{(["GREEN", "YELLOW", "RED"] as const).map((value) => <label className={`pulse-option pulse-${value.toLowerCase()} ${rating === value ? "pulse-selected" : ""}`} key={value}><input checked={rating === value} name="pulse" onChange={() => setRating(value)} type="radio" value={value} /><span>{value === "GREEN" ? "On track" : value === "YELLOW" ? "Needs alignment" : "Escalation required"}</span></label>)}</fieldset>}
         {!isConvert && !(modal === "candidate" && activeBlocker) && modal !== "slack" && <label className="form-label">{modal === "candidate" ? "What’s the issue?" : modal === "pulse" ? "Anything MAVI should know? (Optional)" : "Add a note (optional)"}<textarea onChange={(event) => setNote(event.target.value)} placeholder={modal === "candidate" ? "I’m waiting on access to…" : modal === "customer" ? "Tell your MAVI operator what would help…" : "Share context for your MAVI operator…"} required={modal === "candidate"} rows={4} value={note} /></label>}
-        {modal === "slack" ? <div className="dialog-actions"><Button className="button-secondary" onClick={onClose} size="lg" type="button" variant="outline">Close preview</Button>{accessItem?.status !== "PROVISIONED" && accessItem && <Button className="button-secondary" onClick={() => { dispatch({ type: "access", id: accessItem.id, status: "PROVISIONED" }); onToast("Access marked provided in the illustrative demo"); onClose(); }} size="lg" type="button" variant="outline">Simulate access provided</Button>}<Button className="button-primary" disabled={nudgeLogged} onClick={() => { if (!intervention) return; dispatch({ type: "operator-nudge", message: `${intervention.id}: simulated follow-up logged` }); setNudgeLogged(true); onToast("Nudge logged in demo · nothing sent externally"); }} size="lg" type="button">{nudgeLogged ? "Nudge logged" : "Log nudge in demo"}<ArrowRight size={15} /></Button></div> : <div className="dialog-actions"><Button className="button-secondary" onClick={onClose} size="lg" type="button" variant="outline">{modal === "candidate" && activeBlocker ? "Close" : "Cancel"}</Button>{!(modal === "candidate" && activeBlocker) && <Button className="button-primary" size="lg" type="submit">{isConvert ? "Confirm in demo" : modal === "candidate" ? "Send blocker to MAVI" : modal === "pulse" ? "Submit pulse" : "Send private note"}<ArrowRight size={15} /></Button>}</div>}
+        {modal === "slack" ? <div className="dialog-actions"><Button className="button-secondary" onClick={onClose} size="lg" type="button" variant="outline">Close preview</Button>{accessItem?.status !== "PROVISIONED" && accessItem && <Button className="button-secondary" onClick={() => { dispatch({ type: "access", id: accessItem.id, status: "PROVISIONED" }); onToast("Access marked provided in the illustrative demo"); onClose(); }} size="lg" type="button" variant="outline">Simulate access provided</Button>}<Button className="button-primary" disabled={nudgeLogged} onClick={() => { if (!intervention) return; dispatch({ type: "operator-nudge", message: `${intervention.id}: simulated follow-up logged` }); setNudgeLogged(true); onToast("Slack nudge simulated · no message sent"); }} size="lg" type="button"><Slack aria-hidden="true" size={16} />{nudgeLogged ? "Nudge simulated" : "Send nudge to Slack"}</Button></div> : <div className="dialog-actions"><Button className="button-secondary" onClick={onClose} size="lg" type="button" variant="outline">{modal === "candidate" && activeBlocker ? "Close" : "Cancel"}</Button>{!(modal === "candidate" && activeBlocker) && <Button className="button-primary" size="lg" type="submit">{isConvert ? "Confirm in demo" : modal === "candidate" ? "Send blocker to MAVI" : modal === "pulse" ? "Submit pulse" : "Send private note"}<ArrowRight size={15} /></Button>}</div>}
         {modal !== "slack" && <div className="dialog-demo-note"><span className="demo-dot" />Demo only · no external message is sent</div>}
       </form>
       </DialogContent>
@@ -550,8 +570,9 @@ export default function TrialPortal() {
       <TopBar dispatch={dispatch} onReset={() => { dispatch({ type: "reset" }); showToast("Trial reset to its illustrative starting state"); }} state={state} />
       <main className="portal-main">
         <div className="role-surface" key={state.activeRole}>
-          <TrialHeading day={state.activeDay} onDayChange={(day) => dispatch({ type: "day", day })} role={state.activeRole} trial={trial} />
-          {state.activeRole === "customer" && <><CustomerCandidateSummary trial={trial} /><DayRail day={state.activeDay} onChange={(day) => dispatch({ type: "day", day })} /></>}
+          <TrialHeading role={state.activeRole} trial={trial} />
+          <TrialTimeline day={state.activeDay} onChange={(day) => dispatch({ type: "day", day })} />
+          {state.activeRole === "customer" && <CustomerCandidateSummary trial={trial} />}
           {state.activeRole === "operator" && <CandidateStrip trial={trial} />}
           {state.activeRole === "operator" && <OperatorView dispatch={dispatch} onModal={setModal} onPreviewFollowup={(id) => { setInterventionId(id); setModal("slack"); }} onToast={showToast} state={state} />}
           {state.activeRole === "customer" && <CustomerView dispatch={dispatch} onModal={setModal} state={state} />}
