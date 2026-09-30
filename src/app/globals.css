@@ -17,6 +17,8 @@
   --brand: #4b45ff;
   --brand-dark: #3933db;
   --brand-soft: #f0efff;
+  --button-hover-surface: #b9b2ff;
+  --button-hover-ink: #3327c7;
   --ink: #17171b;
   --muted: #f4f4f6;
   --soft-muted: #8a8a92;
@@ -88,7 +90,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .topbar-actions { display: flex; align-items: center; gap: 12px; margin-left: auto; }
 .scenario-select { width: 190px; border-color: var(--line); background: white; color: var(--ink); font-size: 12px; }
 .icon-button { display: inline-grid; place-items: center; width: 34px; height: 34px; border: 1px solid var(--line); border-radius: 7px; background: white; color: #55555e; }
-.icon-button:hover { border-color: #c9c8d2; background: #fafafd; }
 .operator-avatar { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #e9e8ff; color: var(--brand); font-size: 12px; font-weight: 700; }
 .portal-main { width: min(1320px, calc(100% - 64px)); margin: 0 auto; padding: 31px 0 48px; }
 .trial-heading { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 19px; }
@@ -175,7 +176,6 @@ h1, h2, h3, p { margin-top: 0; }
 .access-request-panel .access-request > span { gap: 8px; }
 .access-request-panel .access-request svg { color: #96600b; }
 .access-request-panel .small-link { padding: 7px 9px; border: 1px solid #e8e8ed; border-radius: 6px; background: white; text-decoration: none; }
-.access-request-panel .small-link:hover { border-color: #c9c8d4; background: #fafafd; }
 .role-surface { animation: surface-in .2s cubic-bezier(.2,.8,.2,1) both; }
 @keyframes surface-in { from { opacity: .72; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 .demo-controller { position: fixed; z-index: 20; bottom: 22px; left: 50%; display: flex; align-items: center; gap: 7px; max-width: calc(100vw - 24px); padding: 6px; border: 1px solid #393941; border-radius: 999px; background: #1c1c23; color: white; box-shadow: 0 6px 18px #11111924; transform: translateX(-50%); }
@@ -193,7 +193,6 @@ h1, h2, h3, p { margin-top: 0; }
 .role-intro p, .section-subtitle { margin: 5px 0 0; color: var(--muted-foreground); font-size: 12px; }
 .heading-context { display: inline-block; margin-left: 9px; color: #707079; font-size: 10px; font-weight: 650; letter-spacing: .055em; vertical-align: middle; }
 .button-primary, .button-secondary { min-height: 36px; border-radius: 9px; font-size: 12px; font-weight: 560; transition: color .16s ease, background-color .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease; }
-.button-secondary[data-variant="outline"]:hover:not(:disabled) { border-color: #45454e; background: #fff; color: var(--brand); box-shadow: 0 1px 2px #17171b0b; }
 .button-primary:hover:not(:disabled) { background: var(--brand-dark); box-shadow: 0 2px 5px #4b45ff24; }
 .button-danger-outline { border-color: #f0c7c5; color: var(--risk); }
 .today-panel, .access-panel { margin-top: 17px; border: 1px solid var(--line); border-radius: 10px; background: white; }
@@ -649,6 +648,36 @@ h1, h2, h3, p { margin-top: 0; }
   .phase-access-state { padding-top: 8px; }
   .hub-actions { flex-direction: column; align-items: stretch; }
   .hub-actions > button { width: 100%; }
+}
+
+/* Shared MAVI hover treatment for white interactive surfaces. */
+button:is(
+  [data-slot="button"][data-variant="outline"],
+  [data-slot="select-trigger"],
+  [data-slot="dialog-close"],
+  .icon-button,
+  .operator-profile-card,
+  .task-row,
+  .access-request-panel .small-link,
+  .resolve-button,
+  .role-option.is-selected
+):not(:disabled):not([data-disabled="true"]) {
+  transition: background-color .16s ease, color .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+
+  @media (hover: hover) {
+    &:hover {
+      background-color: var(--button-hover-surface);
+      border-color: var(--button-hover-surface);
+      color: var(--button-hover-ink);
+
+      & .operator-profile-copy > small,
+      & .operator-profile-copy > span,
+      & .task-row-action,
+      & svg {
+        color: inherit;
+      }
+    }
+  }
 }
 
 @theme inline {
