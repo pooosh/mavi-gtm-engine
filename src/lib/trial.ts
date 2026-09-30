@@ -87,16 +87,16 @@ export const trialTemplates: TrialWorkspace[] = [
       slackStatus: "ACTIVE",
     },
     access: [
-      { id: "netsuite", name: "NetSuite · read-only role", category: "ERP", status: "PROVISIONED", updatedAtHoursAgo: 12 },
-      { id: "ramp", name: "Ramp · approver access", category: "FINTECH", status: "PENDING", updatedAtHoursAgo: 28 },
+      { id: "netsuite", name: "NetSuite · read-only role", category: "ERP", status: "PENDING", updatedAtHoursAgo: 28 },
+      { id: "ramp", name: "Ramp · approver access", category: "FINTECH", status: "PROVISIONED", updatedAtHoursAgo: 12 },
       { id: "slack", name: "Slack · connect channel", category: "COMMUNICATION", status: "PROVISIONED", updatedAtHoursAgo: 8 },
       { id: "workspace", name: "Secure workspace", category: "SECURITY", status: "PROVISIONED", updatedAtHoursAgo: 24 },
     ],
     customerTasks: {
       setup: [
         { id: "workspace-ready", label: "Review secure workspace protocols", completed: true },
-        { id: "erp-access", label: "Provision NetSuite read-only seat", completed: true },
-        { id: "expense-access", label: "Grant the Ramp approver role", completed: false },
+        { id: "erp-access", label: "Provision NetSuite read-only seat", completed: false },
+        { id: "expense-access", label: "Confirm Ramp approver access", completed: true },
         { id: "slack-invite", label: "Invite candidate to #finance-temp Slack channel", completed: true },
       ],
       delivery: [
@@ -112,8 +112,8 @@ export const trialTemplates: TrialWorkspace[] = [
     candidateTasks: {
       setup: [
         { id: "connect-workspace", label: "Connect to the US-East virtual desktop", completed: true },
-        { id: "authenticate-netsuite", label: "Authenticate NetSuite SSO access", completed: true },
-        { id: "confirm-ramp", label: "Confirm Ramp card read access", completed: false },
+        { id: "authenticate-netsuite", label: "Authenticate NetSuite SSO access", completed: false },
+        { id: "confirm-ramp", label: "Confirm Ramp approver access", completed: true },
         { id: "review-shopify-ledger", label: "Review the Chart of Accounts and Q3 Shopify ledger", completed: true },
       ],
       delivery: [
@@ -130,7 +130,7 @@ export const trialTemplates: TrialWorkspace[] = [
     customerNotes: [],
     candidateBlockers: [],
     escalations: [
-      { id: "access-ramp", message: "Ramp approver access pending for 28 hours", source: "ACCESS", day: 2, resolved: false },
+      { id: "access-netsuite", message: "NetSuite read-only access pending for 28 hours", source: "ACCESS", day: 2, resolved: false },
     ],
     interventions: [],
   },
@@ -225,6 +225,27 @@ export function getTrialHealth(trial: TrialWorkspace): TrialHealth {
   return overdueAccess || unresolvedEscalation || unresolvedBlocker || unresolvedReport ? "AT_RISK" : "ON_TRACK";
 }
 
+export function candidateTaskBlocker(trial: TrialWorkspace, taskId: string): string | null {
+  const sourceTaskId = trial.id === "athena" ? "share-shopify-export" : "share-billing-export";
+  const sourceReady = trial.customerTasks.delivery.some((task) => task.id === sourceTaskId && task.completed);
+  const accessByTask: Record<string, string> = {
+    "authenticate-netsuite": "netsuite",
+    "authenticate-quickbooks": "quickbooks",
+    "confirm-ramp": "ramp",
+    "confirm-stripe": "stripe",
+  };
+  const accessId = accessByTask[taskId];
+  const accessLabel = accessId === "netsuite" ? "NetSuite" : accessId === "quickbooks" ? "QuickBooks" : accessId;
+  if (accessId && trial.access.some((item) => item.id === accessId && item.status !== "PROVISIONED")) return `Waiting on ${accessLabel} access`;
+  if (["shopify-cleanup", "mrr-reconcile", "revenue-schedule"].includes(taskId) && !sourceReady) return "Waiting on customer source data";
+  if (taskId === "netsuite-reconcile" && !trial.candidateTasks.delivery.some((task) => task.id === "shopify-cleanup" && task.completed)) return "Complete the Shopify cleanup first";
+  if (taskId === "netsuite-reconcile" && trial.access.some((item) => item.id === "netsuite" && item.status !== "PROVISIONED")) return "Waiting on NetSuite access";
+  if (taskId === "revenue-schedule" && !trial.candidateTasks.delivery.some((task) => task.id === "mrr-reconcile" && task.completed)) return "Reconcile Stripe MRR first";
+  const summaryPrerequisite = trial.id === "athena" ? "netsuite-reconcile" : "revenue-schedule";
+  if (taskId === "findings-summary" && !trial.candidateTasks.delivery.some((task) => task.id === summaryPrerequisite && task.completed)) return "Complete the reconciliation first";
+  return null;
+}
+
 export interface TrialOSState {
   activeRole: UserRole;
   activeDay: number;
@@ -288,6 +309,8 @@ export function trialReducer(state: TrialOSState, action: TrialAction): TrialOSS
   const trial = { ...state.trial };
   if (action.type === "task") {
     if (action.role === "candidate") {
+      const candidateTask = trial.candidateTasks[action.phase].find((task) => task.id === action.id);
+      if (candidateTask && !candidateTask.completed && candidateTaskBlocker(state.trial, action.id)) return state;
       trial.candidateTasks = {
         ...trial.candidateTasks,
         [action.phase]: trial.candidateTasks[action.phase].map((task) => task.id === action.id ? { ...task, completed: !task.completed } : task),
@@ -303,6 +326,21 @@ export function trialReducer(state: TrialOSState, action: TrialAction): TrialOSS
         const task = trial.customerTasks[action.phase].find((item) => item.id === action.id);
         trial.access = trial.access.map((item) => item.id === accessId ? { ...item, status: task?.completed ? "PROVISIONED" : "PENDING" } : item);
         trial.escalations = trial.escalations.map((item) => item.id === `access-${accessId}` ? { ...item, resolved: task?.completed ?? item.resolved } : item);
+        if (!task?.completed && accessId === "netsuite") {
+          trial.candidateTasks.setup = trial.candidateTasks.setup.map((item) => item.id === "authenticate-netsuite" ? { ...item, completed: false } : item);
+          trial.candidateTasks.delivery = trial.candidateTasks.delivery.map((item) => ["netsuite-reconcile", "findings-summary"].includes(item.id) ? { ...item, completed: false } : item);
+        }
+        if (!task?.completed && accessId === "stripe") {
+          trial.candidateTasks.setup = trial.candidateTasks.setup.map((item) => item.id === "confirm-stripe" ? { ...item, completed: false } : item);
+          trial.candidateTasks.delivery = trial.candidateTasks.delivery.map((item) => ["mrr-reconcile", "revenue-schedule", "findings-summary"].includes(item.id) ? { ...item, completed: false } : item);
+        }
+      }
+      if (["share-shopify-export", "share-billing-export"].includes(action.id)) {
+        const task = trial.customerTasks[action.phase].find((item) => item.id === action.id);
+        if (!task?.completed) {
+          const downstream = state.trial.id === "athena" ? ["shopify-cleanup", "netsuite-reconcile", "findings-summary"] : ["mrr-reconcile", "revenue-schedule", "findings-summary"];
+          trial.candidateTasks.delivery = trial.candidateTasks.delivery.map((item) => downstream.includes(item.id) ? { ...item, completed: false } : item);
+        }
       }
     }
   } else if (action.type === "access") {
