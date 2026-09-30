@@ -193,7 +193,14 @@ h1, h2, h3, p { margin-top: 0; }
 .role-intro p, .section-subtitle { margin: 5px 0 0; color: var(--muted-foreground); font-size: 12px; }
 .heading-context { display: inline-block; margin-left: 9px; color: #707079; font-size: 10px; font-weight: 650; letter-spacing: .055em; vertical-align: middle; }
 .button-primary, .button-secondary { min-height: 36px; border-radius: 9px; font-size: 12px; font-weight: 560; transition: color .16s ease, background-color .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease; }
-.button-primary:hover:not(:disabled) { background: var(--brand-dark); box-shadow: 0 2px 5px #4b45ff24; }
+@media (hover: hover) {
+  button:is(.button-primary, [data-slot="button"][data-variant="default"]):hover:not(:disabled):not([data-disabled="true"]) {
+    background-color: var(--surface);
+    border-color: #45454e;
+    color: var(--brand);
+    box-shadow: none;
+  }
+}
 .button-danger-outline { border-color: #f0c7c5; color: var(--risk); }
 .today-panel, .access-panel { margin-top: 17px; border: 1px solid var(--line); border-radius: 10px; background: white; }
 .today-heading, .access-panel-head { display: flex; align-items: center; justify-content: space-between; min-height: 54px; padding: 0 17px; border-bottom: 1px solid #eeeef1; }
