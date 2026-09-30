@@ -24,6 +24,10 @@ import {
   X,
 } from "lucide-react";
 import { FormEvent, useEffect, useReducer, useRef, useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   ACCESS_ATTENTION_HOURS,
   ACCESS_SLA_WARNING_HOURS,
@@ -168,14 +172,10 @@ function TopBar({ state, dispatch, onReset }: { state: TrialOSState; dispatch: R
       </a>
       <div className="demo-label"><span className="demo-dot" /> Demo preview · illustrative data</div>
       {isOperator && <div className="topbar-actions">
-        <label className="scenario-select-wrap">
-          <span className="sr-only">Trial scenario</span>
-          <select aria-label="Trial scenario" className="scenario-select" onChange={(event) => dispatch({ type: "template", id: event.target.value })} value={state.trial.id}>
-            <option value="athena">Athena Club</option>
-            <option value="tracedata">TraceData Systems</option>
-          </select>
-          <ChevronDown aria-hidden="true" size={14} />
-        </label>
+        <Select onValueChange={(id) => dispatch({ type: "template", id })} value={state.trial.id}>
+          <SelectTrigger aria-label="Trial scenario" className="scenario-select"><SelectValue /></SelectTrigger>
+          <SelectContent><SelectItem value="athena">Athena Club</SelectItem><SelectItem value="tracedata">TraceData Systems</SelectItem></SelectContent>
+        </Select>
         <button aria-label="Reset demo" className="icon-button" onClick={onReset} title="Reset demo" type="button"><RotateCcw size={16} /></button>
         <div aria-hidden="true" className="operator-avatar">P</div>
       </div>}
@@ -192,7 +192,7 @@ function TrialHeading({ trial, day, role, onDayChange }: { trial: TrialWorkspace
         <div className="breadcrumb"><span>{role === "customer" ? "Your trial" : role === "candidate" ? "Talent workspace" : "MAVI operations"}</span><ChevronRight size={13} /><span>{trial.client.name}</span></div>
         <div className="heading-row">
           <h1>{title}</h1>
-          {role === "customer" && <span className="industry-tag">{trial.client.industry}</span>}
+          {role === "customer" && <Badge className="industry-tag" variant="secondary">{trial.client.industry}</Badge>}
         </div>
         <p className="heading-subtitle">{subtitle}</p>
       </div>
@@ -373,20 +373,20 @@ function CustomerView({ state, dispatch, onModal }: { state: TrialOSState; dispa
     <div className="role-workspace">
       <div className="role-intro">
         <div><h2>Your 14-day gameplan <span className="heading-context">CUSTOMER VIEW</span></h2><p>See what happens next, what’s waiting on your team, and where MAVI can help.</p></div>
-        <button className="button-secondary" onClick={() => onModal("customer")} type="button"><MessageSquareText size={16} />Private note to MAVI</button>
+        <Button className="button-secondary" onClick={() => onModal("customer")} size="lg" type="button" variant="outline"><MessageSquareText size={16} />Private note to MAVI</Button>
       </div>
       <section className="today-panel">
         <div className="today-heading"><h3>What’s happening now <span className="heading-context">DAY {state.activeDay} · {phases.find((item) => item.id === phase)?.label.toUpperCase()}</span></h3><span className="task-count">{tasks.filter((task) => task.completed).length} of {tasks.length} complete</span></div>
         <div className="task-list">
           {tasks.map((task) => <TaskRow key={task.id} completed={task.completed} label={task.label} onToggle={() => dispatch({ type: "task", phase, role: "customer", id: task.id })} />)}
         </div>
-        <div className="customer-pulse-row"><div><strong>How is the first week going?</strong><span>Your pulse is shared with MAVI, never directly with the candidate.</span></div><button className="button-primary" onClick={() => onModal("pulse")} type="button">Send a progress pulse <ArrowRight size={15} /></button></div>
+        <div className="customer-pulse-row"><div><strong>How is the first week going?</strong><span>Your pulse is shared with MAVI, never directly with the candidate.</span></div><Button className="button-primary" onClick={() => onModal("pulse")} size="lg" type="button">Send a progress pulse <ArrowRight size={15} /></Button></div>
       </section>
       {pendingAccess.length > 0 && <section aria-label="Access requests needing your team" className="access-request-panel"><div><h3>Still needed from your team</h3><p>Access stays visible here until it’s ready, even as the trial moves forward.</p></div>{pendingAccess.map((item) => <div className="access-request" key={item.id}><span><AlertTriangle size={15} />{item.name} · waiting {elapsedLabel(item.updatedAtHoursAgo)}</span><button className="small-link" onClick={() => dispatch({ type: "access", id: item.id, status: "PROVISIONED" })} type="button">Mark as provided</button></div>)}</section>}
       {phase === "close" && (
         <section className={`conversion-panel ${state.trial.telemetry.converted ? "conversion-complete" : ""}`}>
           <div><span className="conversion-kicker">DAY 14 · FINAL DECISION</span><h3>{state.trial.telemetry.converted ? "You’ve chosen to move forward." : "Ready to bring this talent onto your team?"}</h3><p>{state.trial.telemetry.converted ? "This selection is recorded in the illustrative demo only." : "Review the trial together, then record your decision. No contract or billing is created."}</p></div>
-          {state.trial.telemetry.converted ? <span className="conversion-status"><CheckCircle2 size={16} />Selected in demo</span> : <button className="button-primary" onClick={() => onModal("convert")} type="button">Hire this candidate <ArrowRight size={15} /></button>}
+          {state.trial.telemetry.converted ? <span className="conversion-status"><CheckCircle2 size={16} />Selected in demo</span> : <Button className="button-primary" onClick={() => onModal("convert")} size="lg" type="button">Hire this candidate <ArrowRight size={15} /></Button>}
         </section>
       )}
     </div>
@@ -420,9 +420,9 @@ function CandidateView({ state, dispatch, onModal }: { state: TrialOSState; disp
         <div className="access-panel-head"><h3>Tool access <span className="heading-context">READY WHEN YOU ARE</span></h3><LockKeyhole size={18} /></div>
         {accessItems.map((item) => {
           const ready = item.status === "PROVISIONED";
-          return <div className={`candidate-access-row ${ready ? "access-ready" : ""}`} key={item.id}><span className="access-status-icon">{ready ? <CheckCircle2 size={15} /> : <Clock3 size={15} />}</span><span><b>{item.name}</b><small>{ready ? "Available for this trial" : `Waiting on client access · ${elapsedLabel(item.updatedAtHoursAgo)} elapsed`}</small></span><span className={ready ? "ready-tag" : "pending-tag"}>{ready ? "Ready" : "Pending"}</span></div>;
+          return <div className={`candidate-access-row ${ready ? "access-ready" : ""}`} key={item.id}><span className="access-status-icon">{ready ? <CheckCircle2 size={15} /> : <Clock3 size={15} />}</span><span><b>{item.name}</b><small>{ready ? "Available for this trial" : `Waiting on client access · ${elapsedLabel(item.updatedAtHoursAgo)} elapsed`}</small></span><Badge className={ready ? "ready-tag" : "pending-tag"} variant="outline">{ready ? "Ready" : "Pending"}</Badge></div>;
         })}
-        <button className="button-secondary blocked-cta" onClick={() => onModal("candidate")} type="button"><CircleHelp size={15} />{blocked ? "Update my blocker" : "I’m blocked on access"}<ArrowRight size={14} /></button>
+        <Button className="button-secondary blocked-cta" onClick={() => onModal("candidate")} size="lg" type="button" variant="outline"><CircleHelp size={15} />{blocked ? "Update my blocker" : "I’m blocked on access"}<ArrowRight size={14} /></Button>
       </section>
     </div>
   );
@@ -437,7 +437,7 @@ function OperatorView({ state, dispatch, onModal, onPreviewFollowup, onToast }: 
     <div className="role-workspace operator-workspace">
       <div className="role-intro operator-intro">
         <div><h2>Keep the trial moving. <span className="heading-context">MAVI OPERATOR VIEW</span></h2><p>One view of client setup, candidate work, and the moments that need your attention.</p></div>
-        <span className={`health-chip ${getTrialHealth(trial) === "OFF_TRACK" ? "risk-chip" : getTrialHealth(trial) === "AT_RISK" ? "warning-chip" : "good-chip"}`}><span />{healthLabel(getTrialHealth(trial))}</span>
+        <Badge className={`health-chip ${getTrialHealth(trial) === "OFF_TRACK" ? "risk-chip" : getTrialHealth(trial) === "AT_RISK" ? "warning-chip" : "good-chip"}`} variant="outline"><span />{healthLabel(getTrialHealth(trial))}</Badge>
       </div>
       <HealthBanner onOpen={() => document.getElementById("intervention-queue")?.scrollIntoView({ behavior: "smooth", block: "center" })} trial={trial} />
       <section className="ops-readout" aria-label="Trial operating status">
@@ -477,7 +477,6 @@ function OperatorView({ state, dispatch, onModal, onPreviewFollowup, onToast }: 
 }
 
 function TrialDialog({ modal, state, dispatch, interventionId, onClose, onToast }: { modal: ModalName; state: TrialOSState; dispatch: React.Dispatch<Parameters<typeof trialReducer>[1]>; interventionId: string | null; onClose: () => void; onToast: (message: string) => void }) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
   const [category, setCategory] = useState("Access delay");
   const [tool, setTool] = useState("NetSuite");
   const [note, setNote] = useState("");
@@ -487,13 +486,6 @@ function TrialDialog({ modal, state, dispatch, interventionId, onClose, onToast 
   const intervention = state.trial.escalations.find((item) => item.id === interventionId);
   const accessId = intervention?.id.startsWith("access-") ? intervention.id.slice("access-".length) : null;
   const accessItem = accessId ? state.trial.access.find((item) => item.id === accessId) : null;
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (modal && !dialog.open) dialog.showModal();
-    if (!modal && dialog.open) dialog.close();
-  }, [modal]);
 
   useEffect(() => {
     if (modal !== "candidate" || activeBlocker) return;
@@ -517,20 +509,22 @@ function TrialDialog({ modal, state, dispatch, interventionId, onClose, onToast 
   const title = modal === "customer" ? "A private note to MAVI" : modal === "candidate" ? activeBlocker ? "Your blocker is with MAVI" : "Tell MAVI what’s blocking you" : modal === "pulse" ? "How is the trial going?" : modal === "convert" ? "Ready to continue together?" : "Preview an operator follow-up";
   const helper = modal === "customer" ? "Only the MAVI operator sees this note in the demo. Your candidate will not." : modal === "candidate" ? activeBlocker ? "The MAVI operator can see this blocker. The customer cannot." : "This goes to the MAVI operator in the demo. The customer does not see your private blocker." : modal === "pulse" ? "Your pulse is shared with MAVI so they can help keep the trial on track." : modal === "convert" ? "This confirms the conversion in the demo only. No contract or billing is created." : "Review the suggested message, then log or simulate its outcome. Nothing is sent to an external service.";
   return (
-    <dialog aria-labelledby="dialog-title" className="trial-dialog" onCancel={(event) => { event.preventDefault(); onClose(); }} onClose={onClose} ref={dialogRef}>
+    <Dialog onOpenChange={(open) => { if (!open) onClose(); }} open={Boolean(modal)}>
+      <DialogContent className="trial-dialog" showCloseButton={false}>
       <form onSubmit={submit}>
         <div className="dialog-head"><span className="dialog-icon">{isConvert ? <BadgeCheck size={18} /> : modal === "candidate" ? <CircleHelp size={18} /> : <MessageSquareText size={18} />}</span><button aria-label="Close" className="icon-button" onClick={onClose} type="button"><X size={17} /></button></div>
-        <h2 id="dialog-title">{title}</h2><p className="dialog-helper">{helper}</p>
+        <DialogTitle className="dialog-title" id="dialog-title">{title}</DialogTitle><DialogDescription className="dialog-helper">{helper}</DialogDescription>
         {modal === "slack" && <div className="slack-preview"><div className="slack-preview-head"><span><MessageSquareText size={15} />Illustrative Slack preview</span><b>DEMO</b></div><div className="slack-preview-message"><strong>MAVI trial assistant <span>APP</span></strong><p>{accessItem ? `${accessItem.name} has been waiting ${elapsedLabel(accessItem.updatedAtHoursAgo)}. Can the trial owner confirm when access is available so ${state.trial.candidate.handle} can continue?` : intervention?.source === "CANDIDATE" ? "A private candidate blocker needs operator follow-up." : intervention?.source === "CUSTOMER" ? "A private customer note needs operator follow-up." : intervention?.message ?? "Review this trial and choose a follow-up."}</p><small>Preview only · no message sent</small></div></div>}
-        {modal === "customer" && <label className="form-label">What do you need help with?<select value={category} onChange={(event) => setCategory(event.target.value)}><option>Access delay</option><option>Communication cadence</option><option>Technical quality</option></select></label>}
+        {modal === "customer" && <label className="form-label">What do you need help with?<Select onValueChange={setCategory} value={category}><SelectTrigger aria-label="Feedback category" className="form-select"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Access delay">Access delay</SelectItem><SelectItem value="Communication cadence">Communication cadence</SelectItem><SelectItem value="Technical quality">Technical quality</SelectItem></SelectContent></Select></label>}
         {modal === "candidate" && activeBlocker ? <div className="blocker-receipt"><span>OPEN BLOCKER · DAY {activeBlocker.day}</span><b>{activeBlocker.tool}</b><p>{activeBlocker.issue}</p></div> : null}
-        {modal === "candidate" && !activeBlocker && <label className="form-label">Which tool is blocking you?<select value={tool} onChange={(event) => setTool(event.target.value)}><option>NetSuite</option><option>Ramp</option><option>Shopify</option><option>QuickBooks</option><option>Stripe</option><option>Slack</option><option>Other</option></select></label>}
+        {modal === "candidate" && !activeBlocker && <label className="form-label">Which tool is blocking you?<Select onValueChange={setTool} value={tool}><SelectTrigger aria-label="Blocked tool" className="form-select"><SelectValue /></SelectTrigger><SelectContent>{["NetSuite", "Ramp", "Shopify", "QuickBooks", "Stripe", "Slack", "Other"].map((name) => <SelectItem key={name} value={name}>{name}</SelectItem>)}</SelectContent></Select></label>}
         {modal === "pulse" && <fieldset className="pulse-options"><legend>How is the candidate doing?</legend>{(["GREEN", "YELLOW", "RED"] as const).map((value) => <label className={`pulse-option pulse-${value.toLowerCase()} ${rating === value ? "pulse-selected" : ""}`} key={value}><input checked={rating === value} name="pulse" onChange={() => setRating(value)} type="radio" value={value} /><span>{value === "GREEN" ? "On track" : value === "YELLOW" ? "Needs alignment" : "Escalation required"}</span></label>)}</fieldset>}
         {!isConvert && !(modal === "candidate" && activeBlocker) && modal !== "slack" && <label className="form-label">{modal === "candidate" ? "What’s the issue?" : modal === "pulse" ? "Anything MAVI should know? (Optional)" : "Add a note (optional)"}<textarea onChange={(event) => setNote(event.target.value)} placeholder={modal === "candidate" ? "I’m waiting on access to…" : modal === "customer" ? "Tell your MAVI operator what would help…" : "Share context for your MAVI operator…"} required={modal === "candidate"} rows={4} value={note} /></label>}
-        {modal === "slack" ? <div className="dialog-actions"><button className="button-secondary" onClick={onClose} type="button">Close preview</button>{accessItem?.status !== "PROVISIONED" && accessItem && <button className="button-secondary" onClick={() => { dispatch({ type: "access", id: accessItem.id, status: "PROVISIONED" }); onToast("Access marked provided in the illustrative demo"); onClose(); }} type="button">Simulate access provided</button>}<button className="button-primary" disabled={nudgeLogged} onClick={() => { if (!intervention) return; dispatch({ type: "operator-nudge", message: `${intervention.id}: simulated follow-up logged` }); setNudgeLogged(true); onToast("Nudge logged in demo · nothing sent externally"); }} type="button">{nudgeLogged ? "Nudge logged" : "Log nudge in demo"}<ArrowRight size={15} /></button></div> : <div className="dialog-actions"><button className="button-secondary" onClick={onClose} type="button">{modal === "candidate" && activeBlocker ? "Close" : "Cancel"}</button>{!(modal === "candidate" && activeBlocker) && <button className="button-primary" type="submit">{isConvert ? "Confirm in demo" : modal === "candidate" ? "Send blocker to MAVI" : modal === "pulse" ? "Submit pulse" : "Send private note"}<ArrowRight size={15} /></button>}</div>}
+        {modal === "slack" ? <div className="dialog-actions"><Button className="button-secondary" onClick={onClose} size="lg" type="button" variant="outline">Close preview</Button>{accessItem?.status !== "PROVISIONED" && accessItem && <Button className="button-secondary" onClick={() => { dispatch({ type: "access", id: accessItem.id, status: "PROVISIONED" }); onToast("Access marked provided in the illustrative demo"); onClose(); }} size="lg" type="button" variant="outline">Simulate access provided</Button>}<Button className="button-primary" disabled={nudgeLogged} onClick={() => { if (!intervention) return; dispatch({ type: "operator-nudge", message: `${intervention.id}: simulated follow-up logged` }); setNudgeLogged(true); onToast("Nudge logged in demo · nothing sent externally"); }} size="lg" type="button">{nudgeLogged ? "Nudge logged" : "Log nudge in demo"}<ArrowRight size={15} /></Button></div> : <div className="dialog-actions"><Button className="button-secondary" onClick={onClose} size="lg" type="button" variant="outline">{modal === "candidate" && activeBlocker ? "Close" : "Cancel"}</Button>{!(modal === "candidate" && activeBlocker) && <Button className="button-primary" size="lg" type="submit">{isConvert ? "Confirm in demo" : modal === "candidate" ? "Send blocker to MAVI" : modal === "pulse" ? "Submit pulse" : "Send private note"}<ArrowRight size={15} /></Button>}</div>}
         {modal !== "slack" && <div className="dialog-demo-note"><span className="demo-dot" />Demo only · no external message is sent</div>}
       </form>
-    </dialog>
+      </DialogContent>
+    </Dialog>
   );
 }
 
