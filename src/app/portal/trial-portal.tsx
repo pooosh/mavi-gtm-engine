@@ -15,15 +15,15 @@ import {
   CircleHelp,
   Clock3,
   FileCheck2,
+  Grip,
   LockKeyhole,
   MessageSquareText,
   RotateCcw,
   ShieldCheck,
   UserRound,
-  UsersRound,
   X,
 } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { FormEvent, useEffect, useReducer, useRef, useState } from "react";
 import {
   ACCESS_SLA_WARNING_HOURS,
   createInitialState,
@@ -76,32 +76,86 @@ function trialTaskCount(tasks: TrialWorkspace["customerTasks"], candidateTasks?:
   return { complete: all.filter((task) => task.completed).length, total: all.length };
 }
 
-function RoleSwitcher({ value, onChange }: { value: UserRole; onChange: (role: UserRole) => void }) {
+function DemoController({ value, onChange, attentionCount }: { value: UserRole; onChange: (role: UserRole) => void; attentionCount: number }) {
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
+  const dragOrigin = useRef<{ pointerX: number; pointerY: number; x: number; y: number } | null>(null);
+  const controllerRef = useRef<HTMLDivElement>(null);
+  const roles = [
+    { id: "customer" as const, label: "Customer" },
+    { id: "candidate" as const, label: "Candidate" },
+    { id: "operator" as const, label: "MAVI Ops" },
+  ];
+
+  useEffect(() => {
+    if (!position) return;
+    function keepInViewport() {
+      const bounds = controllerRef.current?.getBoundingClientRect();
+      if (!bounds) return;
+      setPosition((current) => current ? {
+        x: Math.max(8, Math.min(window.innerWidth - bounds.width - 8, current.x)),
+        y: Math.max(8, Math.min(window.innerHeight - bounds.height - 8, current.y)),
+      } : current);
+    }
+    window.addEventListener("resize", keepInViewport);
+    return () => window.removeEventListener("resize", keepInViewport);
+  }, [position]);
+
+  function startDrag(event: React.PointerEvent<HTMLButtonElement>) {
+    if (event.button !== 0 || !controllerRef.current) return;
+    const bounds = controllerRef.current.getBoundingClientRect();
+    dragOrigin.current = { pointerX: event.clientX, pointerY: event.clientY, x: bounds.left, y: bounds.top };
+    setPosition({ x: bounds.left, y: bounds.top });
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function moveDrag(event: React.PointerEvent<HTMLButtonElement>) {
+    if (!dragOrigin.current || !controllerRef.current) return;
+    const origin = dragOrigin.current;
+    const { width, height } = controllerRef.current.getBoundingClientRect();
+    setPosition({
+      x: Math.max(8, Math.min(window.innerWidth - width - 8, origin.x + event.clientX - origin.pointerX)),
+      y: Math.max(8, Math.min(window.innerHeight - height - 8, origin.y + event.clientY - origin.pointerY)),
+    });
+  }
+
+  function endDrag() { dragOrigin.current = null; }
+
+  function moveWithKeyboard(event: React.KeyboardEvent<HTMLButtonElement>) {
+    const offsets: Record<string, [number, number]> = { ArrowUp: [0, -12], ArrowDown: [0, 12], ArrowLeft: [-12, 0], ArrowRight: [12, 0] };
+    const offset = offsets[event.key];
+    if (!offset || !controllerRef.current) return;
+    event.preventDefault();
+    const bounds = controllerRef.current.getBoundingClientRect();
+    setPosition({
+      x: Math.max(8, Math.min(window.innerWidth - bounds.width - 8, bounds.left + offset[0])),
+      y: Math.max(8, Math.min(window.innerHeight - bounds.height - 8, bounds.top + offset[1])),
+    });
+  }
+
   return (
-    <div aria-label="Preview product view" className="role-switcher" role="group">
-      {roles.map((role) => (
-        <button
-          aria-pressed={value === role.id}
-          className={`role-option ${value === role.id ? "is-selected" : ""}`}
-          key={role.id}
-          onClick={() => onChange(role.id)}
-          type="button"
-        >
-          <span>{role.label}</span><span className="role-short">{role.short}</span>
-        </button>
-      ))}
+    <div className={`demo-controller ${position ? "is-positioned" : ""}`} ref={controllerRef} style={position ? { left: position.x, top: position.y } : undefined}>
+      <button aria-label="Move demo view switcher. Use arrow keys to reposition." className="demo-drag-handle" onKeyDown={moveWithKeyboard} onLostPointerCapture={endDrag} onPointerCancel={endDrag} onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} type="button"><Grip aria-hidden="true" size={14} /><span className="demo-controller-label">Demo views</span></button>
+      <div aria-label="Switch demo view" className="role-switcher" role="group">
+        {roles.map((role) => (
+          <button aria-pressed={value === role.id} className={`role-option ${value === role.id ? "is-selected" : ""}`} key={role.id} onClick={() => onChange(role.id)} type="button">
+            <span>{role.label}</span>
+            {role.id === "operator" && value === "operator" && attentionCount > 0 && <span aria-label={`${attentionCount} items need attention`} className="needs-look-count">{attentionCount}</span>}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
 
 function TopBar({ state, dispatch, onReset }: { state: TrialOSState; dispatch: React.Dispatch<Parameters<typeof trialReducer>[1]>; onReset: () => void }) {
+  const isOperator = state.activeRole === "operator";
   return (
     <header className="topbar">
       <a aria-label="MAVI Trial OS" className="brand-lockup" href="/portal">
         <MaviMark /><span className="brand-name">MAVI</span><span className="brand-divider" /><span className="product-name">Trial OS</span>
       </a>
-      <div className="demo-label"><span className="demo-dot" /> Demo sandbox · illustrative data</div>
-      <div className="topbar-actions">
+      <div className="demo-label"><span className="demo-dot" /> Demo preview · illustrative data</div>
+      {isOperator && <div className="topbar-actions">
         <label className="scenario-select-wrap">
           <span className="sr-only">Trial scenario</span>
           <select aria-label="Trial scenario" className="scenario-select" onChange={(event) => dispatch({ type: "template", id: event.target.value })} value={state.trial.id}>
@@ -112,24 +166,31 @@ function TopBar({ state, dispatch, onReset }: { state: TrialOSState; dispatch: R
         </label>
         <button aria-label="Reset demo" className="icon-button" onClick={onReset} title="Reset demo" type="button"><RotateCcw size={16} /></button>
         <div aria-hidden="true" className="operator-avatar">P</div>
-      </div>
+      </div>}
     </header>
   );
 }
 
-function TrialHeading({ trial, day }: { trial: TrialWorkspace; day: number }) {
+function TrialHeading({ trial, day, role, onDayChange }: { trial: TrialWorkspace; day: number; role: UserRole; onDayChange: (day: number) => void }) {
+  const title = role === "candidate" ? `Welcome back, ${trial.candidate.handle}` : role === "operator" ? `${trial.client.name} trial` : trial.client.name;
+  const subtitle = role === "candidate" ? `${trial.client.name} · Working trial` : role === "operator" ? "MAVI operations" : `14-day working trial · Day ${day} of 14`;
   return (
     <div className="trial-heading">
       <div>
-        <div className="breadcrumb"><span>Trials</span><ChevronRight size={13} /><span>{trial.client.name}</span></div>
+        <div className="breadcrumb"><span>{role === "customer" ? "Your trial" : role === "candidate" ? "Talent workspace" : "MAVI operations"}</span><ChevronRight size={13} /><span>{trial.client.name}</span></div>
         <div className="heading-row">
-          <h1>{trial.client.name}</h1>
-          <span className="industry-tag">{trial.client.industry}</span>
+          <h1>{title}</h1>
+          {role === "customer" && <span className="industry-tag">{trial.client.industry}</span>}
         </div>
-        <p className="heading-subtitle">14-day working trial <span className="inline-separator">·</span> Day {day} of 14</p>
+        <p className="heading-subtitle">{subtitle}</p>
       </div>
+      {role !== "customer" && <DayStepper day={day} onChange={onDayChange} />}
     </div>
   );
+}
+
+function DayStepper({ day, onChange }: { day: number; onChange: (day: number) => void }) {
+  return <div aria-label="Choose trial day" className="heading-day-stepper" role="group"><button aria-label="Previous day" disabled={day <= 1} onClick={() => onChange(day - 1)} type="button"><ChevronLeft size={15} /></button><span>Day <b>{day}</b> of 14</span><button aria-label="Next day" disabled={day >= 14} onClick={() => onChange(day + 1)} type="button"><ChevronRight size={15} /></button></div>;
 }
 
 function DayRail({ day, onChange }: { day: number; onChange: (day: number) => void }) {
@@ -137,7 +198,7 @@ function DayRail({ day, onChange }: { day: number; onChange: (day: number) => vo
   return (
     <section aria-label="Trial day navigation" className="day-rail">
       <div className="day-rail-label"><CalendarDays size={16} /><span>Trial timeline</span></div>
-      <div className="phase-rail">
+      <div aria-label="Trial phases" className="phase-rail">
         {phases.map((phase, index) => {
           const activeIndex = phases.findIndex((item) => item.id === active);
           return (
@@ -148,11 +209,7 @@ function DayRail({ day, onChange }: { day: number; onChange: (day: number) => vo
           );
         })}
       </div>
-      <div className="day-control">
-        <button aria-label="Previous day" disabled={day <= 1} onClick={() => onChange(day - 1)} type="button"><ChevronLeft size={15} /></button>
-        <span>Day <b>{day}</b></span>
-        <button aria-label="Next day" disabled={day >= 14} onClick={() => onChange(day + 1)} type="button"><ChevronRight size={15} /></button>
-      </div>
+      <div className="day-control"><span>Day <b>{day}</b> of 14</span></div>
     </section>
   );
 }
@@ -183,6 +240,16 @@ function CandidateStrip({ trial }: { trial: TrialWorkspace }) {
           <span>No VM is provisioned and compliance is not verified.</span>
         </div>
       </details>
+    </section>
+  );
+}
+
+function CustomerCandidateSummary({ trial }: { trial: TrialWorkspace }) {
+  return (
+    <section aria-label="Illustrative candidate summary" className="customer-candidate-summary">
+      <div className="candidate-monogram large">M</div>
+      <div><span className="summary-label">YOUR CANDIDATE · ILLUSTRATIVE PROFILE</span><strong>{trial.candidate.handle}</strong><p>{trial.candidate.title} · {trial.candidate.pedigree}</p></div>
+      <div className="customer-candidate-tools"><span>Experience with</span><div>{trial.candidate.tools.map((tool) => <span className="tool-tag" key={tool}>{tool}</span>)}</div></div>
     </section>
   );
 }
@@ -286,15 +353,6 @@ function CustomerView({ state, dispatch, onModal }: { state: TrialOSState; dispa
       <div className="role-intro">
         <div><h2>Your 14-day gameplan <span className="heading-context">CUSTOMER VIEW</span></h2><p>See what happens next, what’s waiting on your team, and where MAVI can help.</p></div>
         <button className="button-secondary" onClick={() => onModal("customer")} type="button"><MessageSquareText size={16} />Private note to MAVI</button>
-      </div>
-      <div className="phase-summary-grid">
-        {phases.map((item, index) => (
-          <button className={`phase-summary ${phase === item.id ? "summary-current" : ""}`} key={item.id} onClick={() => dispatch({ type: "day", day: item.id === "setup" ? 2 : item.id === "delivery" ? 5 : 14 })} type="button">
-            <span className="summary-index">0{index + 1}</span><span className="summary-days">{item.days}</span><b>{item.name}</b>
-            <small>{index === 0 ? "Provision access · invite to Slack" : index === 1 ? "Share source data · review first work" : "Review together · decide what’s next"}</small>
-            <ArrowRight size={15} />
-          </button>
-        ))}
       </div>
       <section className="today-panel">
         <div className="today-heading"><h3>What’s happening now <span className="heading-context">DAY {state.activeDay} · {phases.find((item) => item.id === phase)?.label.toUpperCase()}</span></h3><span className="task-count">{tasks.filter((task) => task.completed).length} of {tasks.length} complete</span></div>
@@ -456,7 +514,7 @@ export default function TrialPortal() {
   const [toast, setToast] = useState("");
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const trial = state.trial;
-  const health = useMemo(() => getTrialHealth(trial), [trial]);
+  const needsLookCount = trial.escalations.filter((item) => !item.resolved).length;
 
   function showToast(message: string) {
     setToast(message);
@@ -467,20 +525,22 @@ export default function TrialPortal() {
   useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
 
   return (
-    <div className="portal-shell">
+    <div className={`portal-shell role-${state.activeRole}`}>
       <TopBar dispatch={dispatch} onReset={() => { dispatch({ type: "reset" }); showToast("Trial reset to its illustrative starting state"); }} state={state} />
       <main className="portal-main">
-        <TrialHeading day={state.activeDay} trial={trial} />
-        <CandidateStrip trial={trial} />
-        <div className="view-toolbar"><div className="view-toolbar-label"><UsersRound size={16} /><span>Preview perspective</span></div><RoleSwitcher onChange={(role) => dispatch({ type: "role", role })} value={state.activeRole} /><div className="toolbar-spacer" /><span className={`toolbar-health ${health === "OFF_TRACK" ? "risk-text" : health === "AT_RISK" ? "warning-text" : ""}`}><span />{healthLabel(health)}</span><button aria-label="Previous day" className="toolbar-step" disabled={state.activeDay <= 1} onClick={() => dispatch({ type: "day", day: state.activeDay - 1 })} type="button"><ChevronLeft size={15} /></button><button aria-label="Next day" className="toolbar-step" disabled={state.activeDay >= 14} onClick={() => dispatch({ type: "day", day: state.activeDay + 1 })} type="button"><ChevronRight size={15} /></button></div>
-        <DayRail day={state.activeDay} onChange={(day) => dispatch({ type: "day", day })} />
-        {state.activeRole === "operator" && <OperatorView dispatch={dispatch} onModal={setModal} onToast={showToast} state={state} />}
-        {state.activeRole === "customer" && <CustomerView dispatch={dispatch} onModal={setModal} state={state} />}
-        {state.activeRole === "candidate" && <CandidateView dispatch={dispatch} onModal={setModal} state={state} />}
+        <div className="role-surface" key={state.activeRole}>
+          <TrialHeading day={state.activeDay} onDayChange={(day) => dispatch({ type: "day", day })} role={state.activeRole} trial={trial} />
+          {state.activeRole === "customer" && <><CustomerCandidateSummary trial={trial} /><DayRail day={state.activeDay} onChange={(day) => dispatch({ type: "day", day })} /></>}
+          {state.activeRole === "operator" && <CandidateStrip trial={trial} />}
+          {state.activeRole === "operator" && <OperatorView dispatch={dispatch} onModal={setModal} onToast={showToast} state={state} />}
+          {state.activeRole === "customer" && <CustomerView dispatch={dispatch} onModal={setModal} state={state} />}
+          {state.activeRole === "candidate" && <CandidateView dispatch={dispatch} onModal={setModal} state={state} />}
+        </div>
       </main>
       <footer className="portal-footer"><span><MaviMark /> MAVI Trial OS</span><span>14-day activation room · <b>local state</b></span><button onClick={() => showToast("Scenario data is illustrative. No real client or candidate account is connected.")} type="button"><CircleHelp size={14} />About this demo</button></footer>
       {toast && <div aria-live="polite" className="toast-message" role="status"><CheckCircle2 size={16} />{toast}<button aria-label="Dismiss notification" onClick={() => setToast("")} type="button"><X size={14} /></button></div>}
       <TrialDialog dispatch={dispatch} modal={modal} onClose={() => setModal(null)} state={state} />
+      <DemoController attentionCount={needsLookCount} onChange={(role) => dispatch({ type: "role", role })} value={state.activeRole} />
     </div>
   );
 }
