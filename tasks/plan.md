@@ -2,7 +2,7 @@
 
 ## Overview
 
-Build a browser-based, single-route trial workspace for customer, candidate, and MAVI operator walkthroughs. The operator view surfaces a simulated access risk after 48 hours; customer and candidate actions feed the operator's local intervention queue. Use the product and interaction requirements in `mavi_trial_os_technical_specification.md`, including its later three-role correction. `PROJECT_CONTEXT.md` describes a different, earlier intake-and-matching product and is not part of this MVP.
+Build a browser-based, single-route trial workspace for customer, candidate, and MAVI operator walkthroughs. Customer and candidate tasks are separate; the operator view surfaces simulated access attention after 24 hours and a 36-hour SLA warning. Participant actions feed the operator's local intervention queue. Use the product and interaction requirements in `mavi_trial_os_technical_specification.md`, including its later three-role correction. `PROJECT_CONTEXT.md` describes a different, earlier intake-and-matching product and is not part of this MVP.
 
 ## Architecture
 
@@ -15,7 +15,7 @@ Build a browser-based, single-route trial workspace for customer, candidate, and
 ## Build Order
 
 1. Establish the Next.js shell, design tokens, types, and seeded scenarios.
-2. Build the operator view and the shared state transition for access pending over 48 hours.
+2. Build the operator view and shared state transitions for access attention at 24 hours and the 36-hour SLA warning.
 3. Add customer and candidate views that read and update the same trial state, including private-to-each-other reports.
 4. Add trial day progression, scenario switching, conversion preview, and responsive/accessibility refinements.
 

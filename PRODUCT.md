@@ -31,7 +31,7 @@ The product centers the working trial itself: one 14-day timeline with distinct 
 ## Operating Context
 
 - Trials progress through setup (Days 0–2), first deliverable (Days 3–7), and final review/conversion (Days 8–14).
-- Required software access can block candidate work; access pending more than 48 hours raises an operator alert.
+- Customer-owned provisioning tasks stay separate from candidate-owned setup and delivery tasks. Access pending more than 24 hours raises operator attention; 36 hours is the SLA warning.
 - Customer feedback and candidate blocker reports are private from each other and visible to MAVI operators.
 - Candidate checklists and trial events update a shared illustrative workspace state.
 - The MVP is a browser-based pitch prototype using seeded example profiles and local state.
@@ -42,7 +42,7 @@ The product centers the working trial itself: one 14-day timeline with distinct 
 - Show a client template selector, candidate dossier, scenario-specific sample AI scorecard, hypothetical security details, milestones, checklists, pulse feedback, blocker reporting, operator health, escalations, and simulated conversion.
 - Seeded names, trial events, candidate credentials, scores, benchmarks, and security settings are illustrative and must be labeled as demo data.
 - The demo does not authenticate users, send email or Slack messages, provision VMs, enforce access controls, create contracts, start billing, or provide a SOC 2 attestation.
-- Preserve the 48-hour access escalation rule and keep trial health consistent with unresolved access and sentiment risks.
+- Keep trial health and the operator status banner consistent with open interventions and access age.
 
 ## Brand Commitments
 

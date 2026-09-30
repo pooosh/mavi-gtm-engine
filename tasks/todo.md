@@ -6,8 +6,8 @@ The implementation slices below are complete. Browser-based interaction and desk
   - Acceptance: `/portal` renders from typed local config; global demo-data label is visible.
   - Verify: Start the app and inspect the route.
   - Dependencies: None.
-- [x] Build operator health and 48-hour access escalation.
-  - Acceptance: A pending access item older than 48 hours appears as a prominent operator alert; resolving it updates local state.
+- [x] Build operator health and access attention/SLA escalation.
+  - Acceptance: A pending access item older than 24 hours appears in the operator queue; 36 hours raises the SLA warning; resolving it updates local state.
   - Verify: Inspect the seeded overdue scenario and resolution interaction.
   - Dependencies: Scaffold.
 - [x] Build customer and candidate perspectives with private reports.

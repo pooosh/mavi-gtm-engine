@@ -94,12 +94,18 @@ export interface MilestonePhase {
   name: string;                       // e.g. "Phase 1: System Onboarding"
   dayRange: string;                   // e.g. "Days 0-2"
   status: "COMPLETED" | "CURRENT" | "UPCOMING";
-  tasks: Array<{
+  customerTasks: Array<{
     id: string;
     label: string;
     completed: boolean;
     isSystemAccess?: boolean;
     systemAccessId?: string;
+  }>;
+  candidateTasks: Array<{
+    id: string;
+    label: string;
+    completed: boolean;
+    waitsForAccessId?: string;
   }>;
   deliverableSummary: string;
 }
@@ -124,6 +130,7 @@ export interface TelemetryState {
 
 export interface TrialWorkspaceConfig {
   id: string;
+  initialDay: number;
   client: ClientProfile;
   candidate: CandidateDossier;
   systemAccess: SystemAccessItem[];
@@ -151,7 +158,7 @@ The application must support switching between two distinct discovery configurat
 - **Default State:**
   - NetSuite Read-Only: `PROVISIONED`
   - US Secure VM: `PROVISIONED`
-  - Ramp Approver Access: `PENDING` for 52 hours (illustrative; over the 48-hour threshold).
+  - Ramp Approver Access: `PENDING` for 28 hours on Day 2 (illustrative; past the 24-hour setup window, before the 36-hour SLA warning).
   - Health: `AT_RISK` until Ramp access is provisioned.
 
 ### 4.2 Configuration B: `saas-metric-config.json` (B2B SaaS Revenue Operations)
@@ -161,8 +168,8 @@ The application must support switching between two distinct discovery configurat
 - **Candidate:** Candidate S-109 (Ex-Deloitte Advisory, 3.5 years, US-West AWS WorkSpace).
 - **Default State:**
   - QuickBooks Online Access: `PROVISIONED`
-  - Stripe Read-Only API: `PENDING` for 76 hours (illustrative; over the 48-hour threshold).
-  - Health: `AT_RISK` because Stripe access is overdue under the access-delay rule below.
+  - Stripe Read-Only API: `PENDING` for 76 hours (illustrative; past the 36-hour SLA warning).
+  - Health: `OFF_TRACK` because Stripe access has exceeded the SLA warning.
 
 All names, profiles, scores, access states, timestamps, benchmark results, and security attributes in both templates are illustrative scenario data. The UI must show a persistent `Illustrative demo data` label. Security cards describe a hypothetical configuration only; the demo does not provide a VM, SOC 2 attestation, or enforce technical controls.
 
@@ -170,25 +177,20 @@ All names, profiles, scores, access states, timestamps, benchmark results, and s
 
 ## 5. UI Architecture & View Hierarchy
 
-The layout consists of a persistent top utility bar and a 2-column workspace:
-1. **Global Control Header** (Persistent)
-2. **Left Panel: Candidate Dossier & Illustrative Security Details** (30% screen width, sticky)
-3. **Main Panel: 14-Day Activation Roadmap & Workspace** (70% screen width)
-4. **Operator View: Air Traffic Control** (role-specific health, alert, and intervention dashboard)
+The layout consists of a persistent utility bar and a single workspace organized around the shared 14-day timeline:
+1. **Global Control Header** with MAVI identity, sandbox label, scenario selector, and reset.
+2. **Trial Heading and Context Strip** with one candidate summary, sample scorecard values, tools, and hypothetical security details.
+3. **Perspective Selector and Day Rail** shared by all roles.
+4. **Three-Lane Timeline** aligning Customer, Candidate, and MAVI Operator work across the same trial phases.
+5. **Role Workspace** showing the selected role's distinct checklist and actions; the operator workspace includes health, queue, and intervention controls.
 
 ```
-+-----------------------------------------------------------------------------------+
-| GLOBAL CONTROL HEADER: [MAVI TRIAL OS] | Client: [Select Config] | Role: [Select] |
-+----------------------------------------+------------------------------------------+
-| LEFT PANEL (30%):                      | MAIN PANEL (70%):                        |
-| • Candidate Header & Pedigree          | • Phase 1: Days 0-2 (System Onboarding)  |
-| • AI Supervision Scorecard             | • Phase 2: Days 3-7 (Mock Close Sprint)  |
-| • Illustrative Workspace Details       | • Phase 3: Days 8-14 (Live Close & Sign) |
-| • Working Agreement (Timezone Overlap) |                                          |
-|                                        | [ROLE-SPECIFIC ACTION TILES / MODALS]    |
-+----------------------------------------+------------------------------------------+
-| TRIAL HEALTH: AT RISK                   | Ramp access overdue: 52h | Operator alert   |
-+-----------------------------------------------------------------------------------+
+MAVI TRIAL OS · DEMO SANDBOX · SCENARIO · RESET
+14-DAY PLAN             CUSTOMER           CANDIDATE          MAVI OPERATOR
+Days 0–2 · Setup        provision access   complete setup     catch access delay
+Days 3–7 · First work   share/review       deliver work       remove blockers
+Days 8–14 · Final       decide to hire     hand off work      support conversion
+SELECTED ROLE WORKSPACE · OPEN RISKS AND PRIVATE REPORTS FEED OPERATOR QUEUE
 ```
 
 ---
@@ -211,9 +213,9 @@ The layout consists of a persistent top utility bar and a 2-column workspace:
 
 ---
 
-### 6.2 Left Panel: Candidate Trust & Security Invariants
+### 6.2 Candidate Context Strip: Trust & Security Invariants
 
-This panel remains visible in all views. It presents candidate profile and hypothetical security details as illustrative demo content, not verified compliance evidence.
+This horizontal strip remains visible in all views. It presents one candidate summary plus hypothetical security details as illustrative demo content, not verified compliance evidence. Avoid duplicate candidate summaries elsewhere on screen.
 
 #### Module A: Candidate Dossier Brief
 - **Handle:** Candidate code name (e.g., `Candidate M-402`). Never display real personal identifiers.
@@ -233,11 +235,10 @@ Display illustrative example data about candidate capability with AI tools:
 
 #### Module C: Dedicated VM Environment Status
 Display a clearly labeled hypothetical security configuration (not a live environment or compliance attestation):
-- **Host Region:** `US-East (AWS WorkSpace)`
-- **SOC 2 Type II:** `Illustrative configuration` badge; do not claim MAVI compliance or certification.
-- **Local File Download:** `DISABLED (Enforced by Group Policy)`
-- **System Clipboard Sharing:** `DISABLED (Bi-directional blocked)`
-- **Slack Communications:** `Active Guest Account (Whitelisted channels only)`
+- **Host Region:** `US-East` (scenario value only; no environment is provisioned).
+- **SOC 2 Type II:** Do not display a compliance badge or imply MAVI compliance or certification.
+- **Local File Download / Clipboard:** May be shown as disabled in the scenario; do not claim real technical enforcement.
+- **Slack Communications:** Example guest status only; no account or channel is created.
 
 ---
 
@@ -247,15 +248,17 @@ The main panel contains three sequential phases. Each phase represents a milesto
 
 #### Phase 1: Days 0–2 (System Provisioning & Access Scoping)
 - **Objective:** Demonstrate software access progress and surface simulated delays.
-- **Interactive Checklist:**
+- **Customer Checklist (client-admin owned):**
   1. `[x] Illustrative US Secure Workspace Status` (sample state only; no VM is provisioned by the demo).
-  2. `[x] ERP Read-Only Access Provisioned` (Toggleable).
-  3. `[!] Corporate Card / Expenses Access (Ramp / Stripe)`:
+  2. `[x] Provision NetSuite read-only seat` (local demo action).
+  3. `[!] Grant the Ramp approver role`:
      - Default state: `Pending Client Admin Approval`.
-     - Displays a warning badge if status is `PENDING`.
-     - Action button: `Mark as provisioned` (updates the local demo state and clears the illustrative warning).
-  4. `[x] Dedicated Slack Workspace Connect Channel Established`.
-- **Completion Trigger:** When all 4 items show `PROVISIONED`, Phase 1 shows a green checkmark badge: `Ready for Close Sprint`.
+     - Show operator attention after 24 hours and the SLA warning at 36 hours.
+     - Customer may update the local state to provisioned.
+  4. `[x] Invite candidate to #finance-temp Slack channel`.
+- **Candidate Checklist (recipient owned):** Connect to the assigned virtual desktop, authenticate NetSuite, confirm Ramp read access when granted, and review the Chart of Accounts and Q3 Shopify ledger. Keep the Ramp confirmation disabled until the customer marks access as provisioned.
+- Keep client provisioning actions out of the candidate checklist. Completing either role's task updates only that role's checklist; access actions update shared access state.
+- **Completion Trigger:** When required access is ready and each participant completes their setup actions, Phase 1 shows `Ready for first work`.
 
 #### Phase 2: Days 3–7 (The First Milestone Sprint)
   - **Objective:** Demonstrate progress toward the first accounting deliverable.
@@ -274,11 +277,11 @@ The main panel contains three sequential phases. Each phase represents a milesto
   - Submit Button: `Submit pulse`.
   - Logic: If client selects `Yellow` or `Red`, update the shared local demo state and show a confirmation that MAVI has been notified in this simulated scenario. No real notification is sent.
 
-#### Phase 3: Days 8–14 (Live Close & Contract Conversion)
-- **Objective:** Execute live accounting operations and confirm ongoing placement.
+#### Phase 3: Days 8–14 (Final Review & Conversion)
+- **Objective:** Review the trial deliverable and decide whether to continue with the candidate.
 - **Tasks:**
-  - `[] Live Month-End Close Execution (Pre-close trial balance preparation)`.
-  - `[] Final Working Papers Sign-off by Client Controller`.
+  - Candidate: prepare workpapers and handoff notes; walk through findings with the finance lead.
+  - Customer: review the completed deliverable and decide whether to hire the candidate.
 - **Day 14 Conversion Terminal:**
   - Banner: *"14-Day Risk-Free Trial completes on Day 14. Convert to Month-to-Month Engagement."*
   - Primary CTA Button: `Confirm Conversion & Retain Candidate`.
@@ -311,17 +314,17 @@ The candidate must see immediate action items, security tools, and an escalation
   - Do not offer a launch button or imply a real VM session exists.
 - **Private Blocker Modal Button:** `I'm Blocked`
   - Opens modal:
-    - Tool dropdown: `NetSuite` | `Ramp` | `Shopify` | `Excel` | `Slack` | `Other`
+    - Tool dropdown: `NetSuite` | `Ramp` | `QuickBooks` | `Stripe` | `Shopify` | `Excel` | `Slack` | `Other`
     - Problem description: *"Client IT administrator has not sent 2FA token."*
     - Submit Action: Adds a private blocker event to local demo state and alerts the operator view; no real message is sent.
-- **Daily Checklist:** Shows the candidate's tasks for the current simulated trial day and their completion state.
+- **Daily Checklist:** Shows candidate-owned tasks for the current simulated trial day. It never asks the candidate to grant their own permissions or invite themselves to client systems.
 - **Day 5 Pulse Check:** View read-only status (does not display customer private notes).
 - **Day 14 Conversion Terminal:** Shows read-only milestone progress (`Awaiting Client Final Confirmation`).
 
 ### 7.3 MAVI Operator View (GTM / Trial Operations)
 The operator sees the trial's simulated live state and intervenes before access or sentiment issues threaten the placement:
 - **Air Traffic Control Summary:** Trial health (`ON_TRACK`, `AT_RISK`, `OFF_TRACK`), days elapsed, illustrative time-to-first-value, and unresolved blocker count.
-- **Overdue Access Alerts:** A prominent red alert appears when required software access remains pending for more than 48 hours. Example: `NetSuite access pending for 52 hours`.
+- **Access Alerts:** An amber operator alert appears when required access remains pending for more than 24 hours. Show the 36-hour SLA warning separately; escalate visual severity when that threshold is reached. Example: `28h elapsed · SLA warning at 36h`.
 - **Intervention Feed:** Customer-private feedback and candidate blocker reports appear with their source and timestamp. The candidate does not see customer-private notes; the customer does not see candidate-private blocker details.
 - **Operator Actions:** Mark an access blocker resolved, record an intervention, and update the shared demo state. Actions update the UI immediately; no email, Slack message, or external action is sent.
 - **Config Inspector:** Inspect and copy the active illustrative workspace JSON.
@@ -334,14 +337,15 @@ Implement the following deterministic logic in the React state:
 
 | Event Trigger | Condition | System Action |
 | :--- | :--- | :--- |
-| **System access pending > 48h** | Any required access item is not `PROVISIONED` and `updatedAtHoursAgo > 48` | 1. Set `telemetry.health = "AT_RISK"`.<br>2. Add an unresolved operator escalation.<br>3. Show a prominent red alert in operator view and blocker status in the other views. |
+| **System access pending > 24h** | Any required access item is not `PROVISIONED` and `updatedAtHoursAgo > 24` | 1. Set `telemetry.health = "AT_RISK"`.<br>2. Add an unresolved operator escalation.<br>3. Show the pending item in customer and candidate views and an amber operator alert. |
+| **Access reaches 36h SLA warning** | Any required access item is not `PROVISIONED` and `updatedAtHoursAgo >= 36` | 1. Set `telemetry.health = "OFF_TRACK"`.<br>2. Keep the operator escalation open and raise alert severity. |
 | **Resolve Blocker Clicked** | Operator marks a pending item provisioned | 1. Update item status in local demo state.<br>2. Resolve its operator escalation and recalculate `activeBlockerCount`.<br>3. If no overdue access or negative sentiment remains, set `telemetry.health = "ON_TRACK"`. |
 | **Customer Friction Submitted** | Customer submits private feedback | 1. Store it in the customer-private log.<br>2. Add an operator escalation to the intervention feed.<br>3. Confirm that the notification is simulated; no real message is sent. |
 | **Candidate Blocker Submitted** | Candidate logs an access blocker | 1. Store it in the candidate-private log.<br>2. Alert the operator view; set trial health to `AT_RISK` if access is overdue.<br>3. Confirm the escalation is simulated; no real message is sent. |
 | **Day 5 Pulse Submitted** | Rating is `RED` or `YELLOW` | 1. Set `telemetry.health = "AT_RISK"`.<br>2. Add an operator escalation to the intervention feed.<br>3. Display a confirmation that no real MAVI lead is contacted. |
 | **Day 5 Pulse Submitted** | Rating is `GREEN` | 1. Maintain `telemetry.health = "ON_TRACK"` if no unresolved access or sentiment risk remains.<br>2. Record positive sentiment in local demo state. |
 | **Day 14 Conversion Clicked** | Customer clicks `Confirm Conversion` | 1. Set local demo status to `CONVERTED`.<br>2. Show a simulated confirmation summary; do not claim a real contract, billing, or SLA was created. |
-| **Config Toggle Changed** | User selects new client template | 1. Replace state with target JSON.<br>2. Reset active simulation day to Day 3. |
+| **Config Toggle Changed** | User selects new client template | 1. Replace state with target JSON.<br>2. Reset active simulation day to the target template's `initialDay`. |
 
 ---
 
@@ -402,13 +406,13 @@ Follow this sequence to build the application:
    - Ensure the template selector immediately swaps datasets.
    - Ensure the role selector immediately updates visible components and permissions.
 
-4. **Phase 4: Left Sidebar (Candidate Dossier & Trust)**
-   - Render the three stacked cards: Candidate Dossier, AI Supervision Scorecard, and VM Security Specification.
+4. **Phase 4: Candidate Context Strip**
+   - Render one candidate summary, sample scorecard values, tool chips, and hypothetical security details without duplicating the candidate card in the header or footer.
    - Format numbers with tabular typography (`font-mono`).
    - Label all security details as illustrative; do not imply active SOC 2 controls or a provisioned VM.
 
 5. **Phase 5: Main Panel Timeline Execution**
-   - Build `Phase1Provisioning.tsx` with interactive checklist items. Clicking a blocker must toggle its state between `PENDING` and `PROVISIONED`.
+   - Build role-specific setup checklists: the customer provisions access; the candidate confirms access and completes their own onboarding. A candidate access confirmation stays unavailable until the customer provisions that tool.
    - Build `Phase2Milestone.tsx` with accounting deliverable tasks and the 1-click sentiment pulse check.
    - Build `Phase3Conversion.tsx` with the conversion contract trigger.
 

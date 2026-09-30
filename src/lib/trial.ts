@@ -2,6 +2,8 @@ export type UserRole = "customer" | "candidate" | "operator";
 export type TrialHealth = "ON_TRACK" | "AT_RISK" | "OFF_TRACK";
 export type PulseRating = "GREEN" | "YELLOW" | "RED";
 export type AccessStatus = "PROVISIONED" | "PENDING" | "BLOCKED";
+export const ACCESS_ATTENTION_HOURS = 24;
+export const ACCESS_SLA_WARNING_HOURS = 36;
 
 export interface TrialTask {
   id: string;
@@ -19,6 +21,7 @@ export interface TrialAccess {
 
 export interface TrialWorkspace {
   id: string;
+  initialDay: number;
   client: {
     name: string;
     industry: string;
@@ -43,7 +46,8 @@ export interface TrialWorkspace {
     slackStatus: "ACTIVE" | "PENDING" | "DISABLED";
   };
   access: TrialAccess[];
-  tasks: { setup: TrialTask[]; delivery: TrialTask[]; close: TrialTask[] };
+  customerTasks: { setup: TrialTask[]; delivery: TrialTask[]; close: TrialTask[] };
+  candidateTasks: { setup: TrialTask[]; delivery: TrialTask[]; close: TrialTask[] };
   telemetry: {
     ttfvHours: number;
     sentiment: PulseRating | null;
@@ -58,6 +62,7 @@ export interface TrialWorkspace {
 export const trialTemplates: TrialWorkspace[] = [
   {
     id: "athena",
+    initialDay: 2,
     client: {
       name: "Athena Club",
       industry: "D2C · Personal care",
@@ -76,44 +81,62 @@ export const trialTemplates: TrialWorkspace[] = [
       challenge: "Flagged a mismatch between channel return quantities and the NetSuite inventory reconciliation in a synthetic export.",
     },
     workspace: {
-      region: "US-East · illustrative",
+      region: "US-East",
       clipboardDisabled: true,
       downloadsDisabled: true,
       slackStatus: "ACTIVE",
     },
     access: [
       { id: "netsuite", name: "NetSuite · read-only role", category: "ERP", status: "PROVISIONED", updatedAtHoursAgo: 12 },
-      { id: "ramp", name: "Ramp · approver access", category: "FINTECH", status: "PENDING", updatedAtHoursAgo: 52 },
+      { id: "ramp", name: "Ramp · approver access", category: "FINTECH", status: "PENDING", updatedAtHoursAgo: 28 },
       { id: "slack", name: "Slack · connect channel", category: "COMMUNICATION", status: "PROVISIONED", updatedAtHoursAgo: 8 },
       { id: "workspace", name: "Secure workspace", category: "SECURITY", status: "PROVISIONED", updatedAtHoursAgo: 24 },
     ],
-    tasks: {
+    customerTasks: {
       setup: [
-        { id: "workspace-ready", label: "Secure workspace details reviewed", completed: true },
-        { id: "erp-access", label: "Grant NetSuite read-only access", completed: true },
-        { id: "expense-access", label: "Grant Ramp approver access", completed: false },
-        { id: "slack-invite", label: "Invite candidate to the Slack channel", completed: true },
+        { id: "workspace-ready", label: "Review secure workspace protocols", completed: true },
+        { id: "erp-access", label: "Provision NetSuite read-only seat", completed: true },
+        { id: "expense-access", label: "Grant the Ramp approver role", completed: false },
+        { id: "slack-invite", label: "Invite candidate to #finance-temp Slack channel", completed: true },
+      ],
+      delivery: [
+        { id: "share-shopify-export", label: "Share the Shopify sales export and source notes", completed: false },
+        { id: "answer-data-questions", label: "Answer candidate questions about the source data", completed: false },
+        { id: "review-first-work", label: "Review the first reconciliation with MAVI", completed: false },
+      ],
+      close: [
+        { id: "final-review", label: "Review the completed Shopify reconciliation", completed: false },
+        { id: "hire-decision", label: "Decide whether to hire the candidate", completed: false },
+      ],
+    },
+    candidateTasks: {
+      setup: [
+        { id: "connect-workspace", label: "Connect to the US-East virtual desktop", completed: true },
+        { id: "authenticate-netsuite", label: "Authenticate NetSuite SSO access", completed: true },
+        { id: "confirm-ramp", label: "Confirm Ramp card read access", completed: false },
+        { id: "review-shopify-ledger", label: "Review the Chart of Accounts and Q3 Shopify ledger", completed: true },
       ],
       delivery: [
         { id: "shopify-cleanup", label: "Clean the Shopify sales spreadsheet", completed: false },
         { id: "netsuite-reconcile", label: "Reconcile totals to the NetSuite ledger", completed: false },
-        { id: "client-review", label: "Review first deliverable together", completed: false },
+        { id: "findings-summary", label: "Summarize exceptions for the finance lead", completed: false },
       ],
       close: [
-        { id: "preclose", label: "Prepare the pre-close trial balance", completed: false },
-        { id: "working-papers", label: "Complete working papers sign-off", completed: false },
+        { id: "prepare-handoff", label: "Prepare workpapers and handoff notes", completed: false },
+        { id: "walkthrough", label: "Walk through findings with the finance lead", completed: false },
       ],
     },
     telemetry: { ttfvHours: 50.4, sentiment: null, converted: false },
     customerNotes: [],
     candidateBlockers: [],
     escalations: [
-      { id: "access-ramp", message: "Ramp approver access pending for 52 hours", source: "ACCESS", day: 3, resolved: false },
+      { id: "access-ramp", message: "Ramp approver access pending for 28 hours", source: "ACCESS", day: 2, resolved: false },
     ],
     interventions: [],
   },
   {
     id: "tracedata",
+    initialDay: 4,
     client: {
       name: "TraceData Systems",
       industry: "B2B SaaS · Data infrastructure",
@@ -132,7 +155,7 @@ export const trialTemplates: TrialWorkspace[] = [
       challenge: "Flagged a 14-month amortization error in a synthetic ASC 606 revenue schedule.",
     },
     workspace: {
-      region: "US-West · illustrative",
+      region: "US-West",
       clipboardDisabled: true,
       downloadsDisabled: true,
       slackStatus: "PENDING",
@@ -143,21 +166,38 @@ export const trialTemplates: TrialWorkspace[] = [
       { id: "slack", name: "Slack · connect channel", category: "COMMUNICATION", status: "PENDING", updatedAtHoursAgo: 12 },
       { id: "workspace", name: "Secure workspace", category: "SECURITY", status: "PROVISIONED", updatedAtHoursAgo: 20 },
     ],
-    tasks: {
+    customerTasks: {
       setup: [
-        { id: "workspace-ready", label: "Secure workspace details reviewed", completed: true },
-        { id: "erp-access", label: "Grant QuickBooks access", completed: true },
+        { id: "workspace-ready", label: "Review secure workspace protocols", completed: true },
+        { id: "erp-access", label: "Provision QuickBooks accountant seat", completed: true },
         { id: "stripe-access", label: "Grant Stripe read-only access", completed: false },
-        { id: "slack-invite", label: "Invite candidate to the Slack channel", completed: false },
+        { id: "slack-invite", label: "Invite candidate to the finance Slack channel", completed: false },
       ],
       delivery: [
-        { id: "mrr-reconcile", label: "Reconcile Stripe MRR to QuickBooks", completed: false },
-        { id: "revenue-schedule", label: "Prepare the ASC 606 revenue schedule", completed: false },
-        { id: "client-review", label: "Review first deliverable together", completed: false },
+        { id: "share-billing-export", label: "Share the Stripe billing export and source notes", completed: false },
+        { id: "answer-data-questions", label: "Answer candidate questions about billing data", completed: false },
+        { id: "review-first-work", label: "Review the first revenue reconciliation with MAVI", completed: false },
       ],
       close: [
         { id: "preclose", label: "Prepare the pre-close trial balance", completed: false },
         { id: "working-papers", label: "Complete working papers sign-off", completed: false },
+      ],
+    },
+    candidateTasks: {
+      setup: [
+        { id: "connect-workspace", label: "Connect to the US-West virtual workspace", completed: true },
+        { id: "authenticate-quickbooks", label: "Authenticate QuickBooks access", completed: true },
+        { id: "confirm-stripe", label: "Confirm Stripe read-only access", completed: false },
+        { id: "review-mrr-process", label: "Review the MRR close process", completed: true },
+      ],
+      delivery: [
+        { id: "mrr-reconcile", label: "Reconcile Stripe MRR to QuickBooks", completed: false },
+        { id: "revenue-schedule", label: "Prepare the ASC 606 revenue schedule", completed: false },
+        { id: "findings-summary", label: "Summarize exceptions for the finance lead", completed: false },
+      ],
+      close: [
+        { id: "prepare-handoff", label: "Prepare workpapers and handoff notes", completed: false },
+        { id: "walkthrough", label: "Walk through findings with the finance lead", completed: false },
       ],
     },
     telemetry: { ttfvHours: 76, sentiment: null, converted: false },
@@ -172,12 +212,17 @@ export const trialTemplates: TrialWorkspace[] = [
 
 export function getTrialHealth(trial: TrialWorkspace): TrialHealth {
   const overdueAccess = trial.access.some(
-    (item) => item.status !== "PROVISIONED" && item.updatedAtHoursAgo > 48,
+    (item) => item.status !== "PROVISIONED" && item.updatedAtHoursAgo > ACCESS_ATTENTION_HOURS,
   );
+  const slaWarning = trial.access.some(
+    (item) => item.status !== "PROVISIONED" && item.updatedAtHoursAgo >= ACCESS_SLA_WARNING_HOURS,
+  );
+  const unresolvedEscalation = trial.escalations.some((item) => !item.resolved);
   const unresolvedBlocker = trial.candidateBlockers.some((blocker) => !blocker.resolved);
   const unresolvedReport = trial.customerNotes.some((note) => !note.resolved);
 
-  return overdueAccess || unresolvedBlocker || unresolvedReport ? "AT_RISK" : "ON_TRACK";
+  if (slaWarning) return "OFF_TRACK";
+  return overdueAccess || unresolvedEscalation || unresolvedBlocker || unresolvedReport ? "AT_RISK" : "ON_TRACK";
 }
 
 export interface TrialOSState {
@@ -191,7 +236,7 @@ export type TrialAction =
   | { type: "role"; role: UserRole }
   | { type: "template"; id: string }
   | { type: "day"; day: number }
-  | { type: "task"; phase: keyof TrialWorkspace["tasks"]; id: string }
+  | { type: "task"; phase: keyof TrialWorkspace["customerTasks"]; role: "customer" | "candidate"; id: string }
   | { type: "access"; id: string; status: AccessStatus }
   | { type: "pulse"; rating: PulseRating; note: string }
   | { type: "customer-note"; category: string; note: string }
@@ -203,7 +248,7 @@ export type TrialAction =
 
 export function createInitialState(): TrialOSState {
   const trial = structuredClone(trialTemplates[0]);
-  return { activeRole: "operator", activeDay: 3, trial, accessBaseline: Object.fromEntries(trial.access.map((item) => [item.id, item.updatedAtHoursAgo])) };
+  return { activeRole: "operator", activeDay: trial.initialDay, trial, accessBaseline: Object.fromEntries(trial.access.map((item) => [item.id, item.updatedAtHoursAgo])) };
 }
 
 export function trialReducer(state: TrialOSState, action: TrialAction): TrialOSState {
@@ -212,27 +257,29 @@ export function trialReducer(state: TrialOSState, action: TrialAction): TrialOSS
     const template = trialTemplates.find((item) => item.id === action.id);
     if (!template) return state;
     const trial = structuredClone(template);
-    return { ...state, activeDay: 3, trial, accessBaseline: Object.fromEntries(trial.access.map((item) => [item.id, item.updatedAtHoursAgo])) };
+    return { ...state, activeDay: trial.initialDay, trial, accessBaseline: Object.fromEntries(trial.access.map((item) => [item.id, item.updatedAtHoursAgo])) };
   }
   if (action.type === "reset") {
     const template = trialTemplates.find((item) => item.id === state.trial.id) ?? trialTemplates[0];
     const trial = structuredClone(template);
-    return { ...state, activeDay: 3, trial, accessBaseline: Object.fromEntries(trial.access.map((item) => [item.id, item.updatedAtHoursAgo])) };
+    return { ...state, activeDay: trial.initialDay, trial, accessBaseline: Object.fromEntries(trial.access.map((item) => [item.id, item.updatedAtHoursAgo])) };
   }
   if (action.type === "day") {
     const day = Math.max(1, Math.min(14, action.day));
     const access = state.trial.access.map((item) => ({
       ...item,
-      updatedAtHoursAgo: item.status === "PROVISIONED" ? item.updatedAtHoursAgo : Math.max(0, (state.accessBaseline[item.id] ?? item.updatedAtHoursAgo) + (day - 3) * 24),
+      updatedAtHoursAgo: item.status === "PROVISIONED" ? item.updatedAtHoursAgo : Math.max(0, (state.accessBaseline[item.id] ?? item.updatedAtHoursAgo) + (day - state.trial.initialDay) * 24),
     }));
     let escalations = [...state.trial.escalations];
     for (const item of access) {
-      if (item.status !== "PROVISIONED" && item.updatedAtHoursAgo > 48) {
-        const id = `access-${item.id}`;
-        const existing = escalations.some((entry) => entry.id === id);
-        escalations = existing
-          ? escalations.map((entry) => entry.id === id ? { ...entry, message: `${item.name} pending for ${item.updatedAtHoursAgo} hours`, day } : entry)
+      const id = `access-${item.id}`;
+      const exists = escalations.some((entry) => entry.id === id);
+      if (item.status !== "PROVISIONED" && item.updatedAtHoursAgo > ACCESS_ATTENTION_HOURS) {
+        escalations = exists
+          ? escalations.map((entry) => entry.id === id ? { ...entry, message: `${item.name} pending for ${item.updatedAtHoursAgo} hours`, day, resolved: false } : entry)
           : [...escalations, { id, message: `${item.name} pending for ${item.updatedAtHoursAgo} hours`, source: "ACCESS", day, resolved: false }];
+      } else if (exists) {
+        escalations = escalations.map((entry) => entry.id === id ? { ...entry, resolved: true } : entry);
       }
     }
     return { ...state, activeDay: day, trial: { ...state.trial, access, escalations } };
@@ -240,10 +287,24 @@ export function trialReducer(state: TrialOSState, action: TrialAction): TrialOSS
 
   const trial = { ...state.trial };
   if (action.type === "task") {
-    trial.tasks = {
-      ...trial.tasks,
-      [action.phase]: trial.tasks[action.phase].map((task) => task.id === action.id ? { ...task, completed: !task.completed } : task),
-    };
+    if (action.role === "candidate") {
+      trial.candidateTasks = {
+        ...trial.candidateTasks,
+        [action.phase]: trial.candidateTasks[action.phase].map((task) => task.id === action.id ? { ...task, completed: !task.completed } : task),
+      };
+    } else {
+      trial.customerTasks = {
+        ...trial.customerTasks,
+        [action.phase]: trial.customerTasks[action.phase].map((task) => task.id === action.id ? { ...task, completed: !task.completed } : task),
+      };
+      const accessTaskIds: Record<string, string> = { "expense-access": "ramp", "stripe-access": "stripe", "erp-access": state.trial.client.erp === "NetSuite" ? "netsuite" : "quickbooks", "slack-invite": "slack" };
+      const accessId = accessTaskIds[action.id];
+      if (accessId) {
+        const task = trial.customerTasks[action.phase].find((item) => item.id === action.id);
+        trial.access = trial.access.map((item) => item.id === accessId ? { ...item, status: task?.completed ? "PROVISIONED" : "PENDING" } : item);
+        trial.escalations = trial.escalations.map((item) => item.id === `access-${accessId}` ? { ...item, resolved: task?.completed ?? item.resolved } : item);
+      }
+    }
   } else if (action.type === "access") {
     trial.access = trial.access.map((item) => item.id === action.id ? { ...item, status: action.status } : item);
     if (action.status === "PROVISIONED") {
@@ -255,9 +316,9 @@ export function trialReducer(state: TrialOSState, action: TrialAction): TrialOSS
         stripe: "stripe-access",
         slack: "slack-invite",
       };
-      trial.tasks = {
-        ...trial.tasks,
-        setup: trial.tasks.setup.map((task) => task.id === taskId[action.id] ? { ...task, completed: true } : task),
+      trial.customerTasks = {
+        ...trial.customerTasks,
+        setup: trial.customerTasks.setup.map((task) => task.id === taskId[action.id] ? { ...task, completed: true } : task),
       };
     }
   } else if (action.type === "pulse") {
@@ -286,6 +347,11 @@ export function trialReducer(state: TrialOSState, action: TrialAction): TrialOSS
     if (action.id.startsWith("access-")) {
       const accessId = action.id.slice("access-".length);
       trial.access = trial.access.map((item) => item.id === accessId ? { ...item, status: "PROVISIONED" } : item);
+      const taskId: Record<string, string> = { netsuite: "erp-access", ramp: "expense-access", quickbooks: "erp-access", stripe: "stripe-access", slack: "slack-invite" };
+      trial.customerTasks = {
+        ...trial.customerTasks,
+        setup: trial.customerTasks.setup.map((task) => task.id === taskId[accessId] ? { ...task, completed: true } : task),
+      };
     }
   } else if (action.type === "convert") {
     trial.telemetry = { ...trial.telemetry, converted: true };
