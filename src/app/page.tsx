@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import TrialPortal from "./portal/trial-portal";
 
 export default function Home() {
-  redirect("/portal");
+  return <TrialPortal />;
 }

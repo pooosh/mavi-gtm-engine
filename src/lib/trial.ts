@@ -87,16 +87,16 @@ export const trialTemplates: TrialWorkspace[] = [
       slackStatus: "ACTIVE",
     },
     access: [
-      { id: "netsuite", name: "NetSuite · read-only role", category: "ERP", status: "PENDING", updatedAtHoursAgo: 28 },
-      { id: "ramp", name: "Ramp · approver access", category: "FINTECH", status: "PROVISIONED", updatedAtHoursAgo: 12 },
-      { id: "slack", name: "Slack · connect channel", category: "COMMUNICATION", status: "PROVISIONED", updatedAtHoursAgo: 8 },
+      { id: "netsuite", name: "NetSuite · read-only role", category: "ERP", status: "PROVISIONED", updatedAtHoursAgo: 8 },
+      { id: "ramp", name: "Ramp · approver access", category: "FINTECH", status: "PENDING", updatedAtHoursAgo: 28 },
+      { id: "slack", name: "Slack · connect channel", category: "COMMUNICATION", status: "PROVISIONED", updatedAtHoursAgo: 12 },
       { id: "workspace", name: "Secure workspace", category: "SECURITY", status: "PROVISIONED", updatedAtHoursAgo: 24 },
     ],
     customerTasks: {
       setup: [
         { id: "workspace-ready", label: "Review secure workspace protocols", completed: true },
-        { id: "erp-access", label: "Provision NetSuite read-only seat", completed: false },
-        { id: "expense-access", label: "Confirm Ramp approver access", completed: true },
+        { id: "erp-access", label: "Provision NetSuite read-only seat", completed: true },
+        { id: "expense-access", label: "Confirm Ramp approver access", completed: false },
         { id: "slack-invite", label: "Invite candidate to #finance-temp Slack channel", completed: true },
       ],
       delivery: [
@@ -112,8 +112,8 @@ export const trialTemplates: TrialWorkspace[] = [
     candidateTasks: {
       setup: [
         { id: "connect-workspace", label: "Connect to the US-East virtual desktop", completed: true },
-        { id: "authenticate-netsuite", label: "Authenticate NetSuite SSO access", completed: false },
-        { id: "confirm-ramp", label: "Confirm Ramp approver access", completed: true },
+        { id: "authenticate-netsuite", label: "Authenticate NetSuite SSO access", completed: true },
+        { id: "confirm-ramp", label: "Confirm Ramp approver access", completed: false },
         { id: "review-shopify-ledger", label: "Review the Chart of Accounts and Q3 Shopify ledger", completed: true },
       ],
       delivery: [
@@ -130,7 +130,7 @@ export const trialTemplates: TrialWorkspace[] = [
     customerNotes: [],
     candidateBlockers: [],
     escalations: [
-      { id: "access-netsuite", message: "NetSuite read-only access pending for 28 hours", source: "ACCESS", day: 2, resolved: false },
+      { id: "access-ramp", message: "Ramp approver access pending for 28 hours", source: "ACCESS", day: 2, resolved: false },
     ],
     interventions: [],
   },
@@ -251,6 +251,11 @@ export interface TrialOSState {
   activeDay: number;
   trial: TrialWorkspace;
   accessBaseline: Record<string, number>;
+  activity: Array<{ id: number; day: number; message: string }>;
+}
+
+function recordActivity(state: TrialOSState, message: string, day = state.activeDay) {
+  return [...state.activity.slice(-99), { id: (state.activity.at(-1)?.id ?? 0) + 1, day, message }];
 }
 
 export type TrialAction =
@@ -269,7 +274,7 @@ export type TrialAction =
 
 export function createInitialState(): TrialOSState {
   const trial = structuredClone(trialTemplates[0]);
-  return { activeRole: "operator", activeDay: trial.initialDay, trial, accessBaseline: Object.fromEntries(trial.access.map((item) => [item.id, item.updatedAtHoursAgo])) };
+  return { activeRole: "operator", activeDay: trial.initialDay, trial, accessBaseline: Object.fromEntries(trial.access.map((item) => [item.id, item.updatedAtHoursAgo])), activity: [{ id: 0, day: trial.initialDay, message: `${trial.client.name} illustrative trial opened` }] };
 }
 
 export function trialReducer(state: TrialOSState, action: TrialAction): TrialOSState {
@@ -278,12 +283,12 @@ export function trialReducer(state: TrialOSState, action: TrialAction): TrialOSS
     const template = trialTemplates.find((item) => item.id === action.id);
     if (!template) return state;
     const trial = structuredClone(template);
-    return { ...state, activeDay: trial.initialDay, trial, accessBaseline: Object.fromEntries(trial.access.map((item) => [item.id, item.updatedAtHoursAgo])) };
+    return { ...state, activeDay: trial.initialDay, trial, accessBaseline: Object.fromEntries(trial.access.map((item) => [item.id, item.updatedAtHoursAgo])), activity: [{ id: 0, day: trial.initialDay, message: `${trial.client.name} illustrative trial opened` }] };
   }
   if (action.type === "reset") {
     const template = trialTemplates.find((item) => item.id === state.trial.id) ?? trialTemplates[0];
     const trial = structuredClone(template);
-    return { ...state, activeDay: trial.initialDay, trial, accessBaseline: Object.fromEntries(trial.access.map((item) => [item.id, item.updatedAtHoursAgo])) };
+    return { ...state, activeDay: trial.initialDay, trial, accessBaseline: Object.fromEntries(trial.access.map((item) => [item.id, item.updatedAtHoursAgo])), activity: [{ id: 0, day: trial.initialDay, message: "Illustrative trial reset" }] };
   }
   if (action.type === "day") {
     const day = Math.max(1, Math.min(14, action.day));
@@ -303,7 +308,7 @@ export function trialReducer(state: TrialOSState, action: TrialAction): TrialOSS
         escalations = escalations.map((entry) => entry.id === id ? { ...entry, resolved: true } : entry);
       }
     }
-    return { ...state, activeDay: day, trial: { ...state.trial, access, escalations } };
+    return { ...state, activeDay: day, trial: { ...state.trial, access, escalations }, activity: day === state.activeDay ? state.activity : recordActivity(state, `Demo moved to Day ${day}`, day) };
   }
 
   const trial = { ...state.trial };
@@ -316,6 +321,7 @@ export function trialReducer(state: TrialOSState, action: TrialAction): TrialOSS
         [action.phase]: trial.candidateTasks[action.phase].map((task) => task.id === action.id ? { ...task, completed: !task.completed } : task),
       };
     } else {
+      if (action.id === "hire-decision" && state.activeDay < 12) return state;
       trial.customerTasks = {
         ...trial.customerTasks,
         [action.phase]: trial.customerTasks[action.phase].map((task) => task.id === action.id ? { ...task, completed: !task.completed } : task),
@@ -393,8 +399,26 @@ export function trialReducer(state: TrialOSState, action: TrialAction): TrialOSS
     }
   } else if (action.type === "convert") {
     trial.telemetry = { ...trial.telemetry, converted: true };
+    trial.customerTasks = {
+      ...trial.customerTasks,
+      close: trial.customerTasks.close.map((task) => task.id === "hire-decision" ? { ...task, completed: true } : task),
+    };
   }
 
-  trial.telemetry = { ...trial.telemetry };
-  return { ...state, trial };
+  let message = "";
+  if (action.type === "access") {
+    const item = trial.access.find((entry) => entry.id === action.id);
+    if (item) message = `${item.name}: ${action.status === "PROVISIONED" ? "access provided in demo" : "access pending"}`;
+  } else if (action.type === "resolve-escalation") {
+    const item = trial.access.find((entry) => action.id === `access-${entry.id}`);
+    message = item ? `${item.name}: access provided in demo` : "Operator resolved a private report";
+  } else if (action.type === "operator-nudge") message = "Slack follow-up simulated · no message sent";
+  else if (action.type === "task") {
+    const task = (action.role === "customer" ? trial.customerTasks : trial.candidateTasks)[action.phase].find((entry) => entry.id === action.id);
+    if (task) message = `${action.role === "customer" ? "Customer" : "Candidate"} ${task.completed ? "completed" : "reopened"}: ${task.label}`;
+  } else if (action.type === "candidate-blocker") message = "Candidate shared a private blocker with MAVI";
+  else if (action.type === "customer-note") message = "Customer shared a private note with MAVI";
+  else if (action.type === "pulse") message = "Customer submitted a trial progress pulse";
+  else if (action.type === "convert") message = "Customer chose to hire in the illustrative demo";
+  return { ...state, trial, activity: message ? recordActivity(state, message) : state.activity };
 }

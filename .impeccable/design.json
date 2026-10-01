@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-01T03:09:40Z",
+  "title": "Design System: MAVI Trial OS",
+  "extensions": {
+    "colorMeta": {
+      "mavi-indigo": { "role": "primary", "displayName": "MAVI Indigo", "canonical": "#4f46e5" },
+      "ink": { "role": "neutral", "displayName": "Ink Text", "canonical": "#0c0a08" },
+      "obsidian": { "role": "neutral", "displayName": "Obsidian Surface", "canonical": "#1a1919" },
+      "paper": { "role": "neutral", "displayName": "Paper Card", "canonical": "#ffffff" },
+      "bone": { "role": "neutral", "displayName": "Bone Canvas", "canonical": "#f4f2f0" },
+      "ash": { "role": "neutral", "displayName": "Ash Subhead", "canonical": "#6d6c6b" },
+      "hairline": { "role": "neutral", "displayName": "Hairline Border", "canonical": "#e5e7eb" }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Hero headlines and pull-quotes" },
+      "body": { "displayName": "Body", "purpose": "Narrative and operational card copy" },
+      "caption": { "displayName": "Caption", "purpose": "Uppercase micro-labels and metadata" }
+    },
+    "shadows": [
+      { "name": "subtle-inset", "value": "rgba(255, 255, 255, 0.6) 0px 0px 2px 0px inset", "purpose": "Frosted top edge highlight on sticky navigation" }
+    ],
+    "motion": [
+      { "name": "utility-ease", "value": "cubic-bezier(0.2, 0.8, 0.2, 1)", "purpose": "Fast utility transitions for hover, day stepping, and state changes" }
+    ],
+    "breakpoints": [
+      { "name": "mobile", "value": "650px" },
+      { "name": "tablet", "value": "900px" },
+      { "name": "desktop", "value": "1200px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Main CTA fill for high-leverage resolution actions",
+      "html": "<button class=\"ds-btn-primary\">Confirm Retainer</button>",
+      "css": ".ds-btn-primary { background: #4f46e5; color: #ffffff; padding: 10px 20px; font-size: 14px; font-weight: 500; border: none; border-radius: 6px; cursor: pointer; transition: background-color 0.16s ease; } .ds-btn-primary:hover { background: #4338ca; }"
+    },
+    {
+      "name": "Outlined Button",
+      "kind": "button",
+      "refersTo": "button-outlined",
+      "description": "Secondary action alongside primary CTA",
+      "html": "<button class=\"ds-btn-outlined\">Inspect Full Dossier ↗</button>",
+      "css": ".ds-btn-outlined { background: transparent; color: #0c0a08; border: 1px solid #0c0a08; padding: 10px 16px; font-size: 14px; font-weight: 500; border-radius: 6px; cursor: pointer; transition: background-color 0.16s ease; } .ds-btn-outlined:hover { background: #f4f2f0; }"
+    },
+    {
+      "name": "Content Card",
+      "kind": "card",
+      "refersTo": "content-card",
+      "description": "Primary flat white surface with hairline border",
+      "html": "<div class=\"ds-card\"><h3>System Readiness</h3><p>AWS US-East WorkSpace active.</p></div>",
+      "css": ".ds-card { background: #ffffff; border: 1px solid #e5e7eb; border-radius: 16px; padding: 20px 24px; color: #0c0a08; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Editorial Finance Desk",
+    "overview": "MAVI operates as a black-and-white editorial system punctuated by a single electric cobalt accent — the visual equivalent of an executive finance audit with an indigo marker. The interface stays nearly monochrome: warm off-white canvas, white cards, hairline gray borders, and deep near-black text.",
+    "keyCharacteristics": [
+      "Single-weight typography (400 exclusively)",
+      "Single chromatic signal (MAVI Indigo #4f46e5 reserved for CTAs/active triggers)",
+      "Flat hairline elevation (1px #e5e7eb outlines over shadows)"
+    ],
+    "rules": [
+      { "name": "The Single Accent Rule", "body": "#4f46e5 is reserved strictly for interactive actions and live status triggers.", "section": "colors" },
+      { "name": "The Single-Weight Rule", "body": "Use weight 400 exclusively; hierarchy comes from size and tracking.", "section": "typography" },
+      { "name": "The No-Side-Tab Rule", "body": "Thick colored left/right border stripes on cards are prohibited.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do use lausanne at weight 400 exclusively",
+      "Do reserve #4f46e5 indigo strictly for active CTAs",
+      "Do rely on 1px #e5e7eb hairline borders for separation",
+      "Do use tabular-nums for numeric alignment"
+    ],
+    "donts": [
+      "Don't use border-l-4 or thick side-tab borders on cards",
+      "Don't use font-mono on non-code UI labels or status badges",
+      "Don't apply drop shadows to content cards or panels",
+      "Don't use multicolor gradients or glassmorphism blurs"
+    ]
+  }
+}
