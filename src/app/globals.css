@@ -172,6 +172,8 @@ h1, h2, h3, p { margin-top: 0; }
 .role-option.is-selected { background: white; color: #222229; font-weight: 600; }
 .needs-look-count { display: inline-grid; min-width: 17px; height: 17px; place-items: center; padding: 0 4px; border-radius: 999px; background: #f2b64b; color: #352300; font-size: 9px; font-weight: 700; }
 .role-workspace { margin-top: 25px; }
+.role-customer .role-workspace,
+.role-candidate .role-workspace { margin-top: 0; }
 .role-intro { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 16px; }
 .role-intro h2, .section-heading h2 { margin: 0; font-size: 20px; font-weight: 590; letter-spacing: -.035em; }
 .role-intro p, .section-subtitle { margin: 5px 0 0; color: var(--muted-foreground); font-size: 12px; }
@@ -486,6 +488,8 @@ h1, h2, h3, p { margin-top: 0; }
   .trial-dialog .dialog-actions { flex-wrap: wrap; }
 .trial-dialog .dialog-actions .button-primary { margin-left: auto; }
   .role-workspace { margin-top: 21px; }
+  .role-customer .role-workspace,
+  .role-candidate .role-workspace { margin-top: 0; }
   .role-intro { align-items: flex-start; gap: 10px; }
   .role-intro h2 { font-size: 18px; }
   .role-intro p { max-width: 270px; font-size: 11px; line-height: 1.45; }

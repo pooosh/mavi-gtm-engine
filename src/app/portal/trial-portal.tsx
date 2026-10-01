@@ -328,7 +328,12 @@ function CandidateView({ state, dispatch, onModal }: { state: TrialOSState; disp
   return (
     <div className="role-workspace">
       <div className="role-intro candidate-intro">
-        <div><h2>Your workday, without the guesswork. <span className="heading-context">CANDIDATE VIEW</span></h2><p>Today’s priorities and the tools you’re waiting on, in one place.</p></div>
+        <div>
+          <h2>
+            Welcome back, {state.trial.candidate.handle} <span className="heading-context">CANDIDATE VIEW</span>
+          </h2>
+          <p>{state.trial.client.name} · Working trial</p>
+        </div>
       </div>
       <div className="candidate-day-banner"><div className="day-tile"><span>DAY</span><b>{state.activeDay}</b></div><div><h3>{state.trial.client.deliverable}</h3><p>Work hours overlap: {state.trial.candidate.overlap}</p></div><div className="focus-side"><span>{tasks.filter((task) => task.completed).length} / {tasks.length} tasks</span><span>{phase === "setup" ? "Get access ready" : phase === "delivery" ? "First milestone" : "Final review"}</span></div></div>
       <section className="today-panel candidate-tasks">
@@ -551,10 +556,10 @@ export default function TrialPortal() {
       <TopBar dispatch={dispatch} onReset={() => { dispatch({ type: "reset" }); showToast("Trial reset to its illustrative starting state"); }} state={state} />
       <main className="portal-main">
         <div className="role-surface" key={state.activeRole}>
-          <TrialHeading role={state.activeRole} trial={trial} />
+          {state.activeRole === "operator" && <TrialHeading role={state.activeRole} trial={trial} />}
           {state.activeRole === "operator" && <OperatorDashboard key={trial.id} dispatch={dispatch} onPreviewFollowup={(id) => { setInterventionId(id); setModal("slack"); }} onToast={showToast} state={state} />}
           {state.activeRole !== "operator" && (
-            <div className="flex flex-col lg:flex-row items-start gap-6 w-full mt-2">
+            <div className="flex flex-col lg:flex-row items-start gap-6 w-full">
               <div className="flex-1 min-w-0 w-full space-y-4">
                 {state.activeRole === "customer" && <CustomerView dispatch={dispatch} onModal={setModal} state={state} />}
                 {state.activeRole === "candidate" && <CandidateView dispatch={dispatch} onModal={setModal} state={state} />}
