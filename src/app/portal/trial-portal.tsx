@@ -27,6 +27,7 @@ import {
 import { FormEvent, useEffect, useReducer, useRef, useState } from "react";
 import { OperatorDashboard } from "./operator-dashboard";
 import { SlackMark } from "@/components/brand/slack-mark";
+import { AthenaSlackChannelView } from "@/components/views/AthenaSlackChannelView";
 import { VerticalTrialTimeline } from "@/components/timeline/VerticalTrialTimeline";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -171,14 +172,12 @@ function TopBar({ state, dispatch, onReset }: { state: TrialOSState; dispatch: R
         <MaviMark /><span className="brand-name">MAVI</span><span className="brand-divider" /><span className="product-name">Trial OS</span>
       </a>
       <div className="demo-label"><span className="demo-dot" /> Demo preview · illustrative data</div>
-      {isOperator && <div className="topbar-actions">
-        <Select onValueChange={(id) => dispatch({ type: "template", id })} value={state.trial.id}>
-          <SelectTrigger aria-label="Trial scenario" className="scenario-select"><SelectValue /></SelectTrigger>
-          <SelectContent><SelectItem value="athena">Athena Club</SelectItem><SelectItem value="tracedata">TraceData Systems</SelectItem></SelectContent>
-        </Select>
-        <button aria-label="Reset demo" className="icon-button" onClick={onReset} title="Reset demo" type="button"><RotateCcw size={16} /></button>
-        <div aria-hidden="true" className="operator-avatar">P</div>
-      </div>}
+      {isOperator && (
+        <div className="topbar-actions">
+          <button aria-label="Reset demo" className="icon-button" onClick={onReset} title="Reset demo" type="button"><RotateCcw size={16} /></button>
+          <div aria-hidden="true" className="operator-avatar">P</div>
+        </div>
+      )}
     </header>
   );
 }
@@ -251,66 +250,187 @@ function CandidateIdentityStrip({
 }
 
 function CustomerView({ state, dispatch, onModal }: { state: TrialOSState; dispatch: React.Dispatch<Parameters<typeof trialReducer>[1]>; onModal: (modal: ModalName) => void }) {
+  const [activeSurface, setActiveSurface] = useState<"portal" | "slack">("portal");
   const phase = getPhase(state.activeDay);
   const tasks = state.trial.customerTasks[phase];
   const pendingAccess = state.trial.access.filter((item) => item.status !== "PROVISIONED");
+  const rampItem = state.trial.access.find((item) => item.id === "ramp");
+  const isRampResolved = rampItem?.status === "PROVISIONED";
   const isDecisionWindow = state.activeDay >= 12;
+
+  const handleGrantRamp = () => {
+    dispatch({ type: "access", id: "ramp", status: "PROVISIONED" });
+    dispatch({ type: "resolve-escalation", id: "access-ramp" });
+  };
 
   return (
     <div className="role-workspace">
-      <div className="role-intro">
-        <div><h2>Your 14-day gameplan <span className="heading-context">CUSTOMER VIEW</span></h2><p>See what happens next, what’s waiting on your team, and where MAVI can help.</p></div>
-        <Button className="button-secondary" onClick={() => onModal("customer")} size="lg" type="button" variant="outline"><MessageSquareText size={16} />Private note to MAVI</Button>
+      {/* ── Surface Segmented Switcher [Web Portal | #finance-athena] ── */}
+      <div className="flex flex-wrap items-center justify-between gap-3 pb-3 mb-2 border-b border-[var(--line)]">
+        <div
+          className="inline-flex items-center p-0.5 rounded-lg border border-[var(--line)] bg-[var(--canvas)] text-xs"
+          role="tablist"
+          aria-label="Customer view surface mode"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeSurface === "portal"}
+            onClick={() => setActiveSurface("portal")}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-normal transition-all cursor-pointer ${
+              activeSurface === "portal"
+                ? "bg-white text-[var(--ink)] shadow-none border border-[var(--line)]/60"
+                : "text-[var(--soft-muted)] hover:text-[var(--ink)]"
+            }`}
+          >
+            <span>Web Portal</span>
+          </button>
+
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeSurface === "slack"}
+            onClick={() => setActiveSurface("slack")}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-normal transition-all cursor-pointer ${
+              activeSurface === "slack"
+                ? "bg-white text-[var(--ink)] shadow-none border border-[var(--line)]/60"
+                : "text-[var(--soft-muted)] hover:text-[var(--ink)]"
+            }`}
+          >
+            <SlackMark size={14} />
+            <span>#finance-athena</span>
+            {!isRampResolved && state.activeDay <= 2 && (
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--brand)] animate-pulse" title="1 action pending in Slack" />
+            )}
+          </button>
+        </div>
+
+        <Button className="button-secondary" onClick={() => onModal("customer")} size="sm" type="button" variant="outline">
+          <MessageSquareText size={15} />
+          Private note to MAVI
+        </Button>
       </div>
 
-      <CandidateIdentityStrip trial={state.trial} onInspect={() => onModal("dossier")} />
-      <section className="today-panel">
-        <div className="today-heading">
-          <h3>
-            What’s happening now{" "}
-            <span className="heading-context">
-              DAY {state.activeDay} · {isDecisionWindow ? "DECISION GATE" : state.activeDay >= 8 ? "AUDIT & REVIEW" : phases.find((item) => item.id === phase)?.label.toUpperCase()}
-            </span>
-          </h3>
-          <span className="task-count">{tasks.filter((task) => task.completed).length} of {tasks.length} complete</span>
-        </div>
-        <div className="task-list">
-          {tasks.map((task) => {
-            const isHireTask = task.id === "hire-decision";
-            const isLocked = isHireTask && !isDecisionWindow;
-            return (
-              <TaskRow
-                key={task.id}
-                completed={task.completed}
-                disabled={isLocked}
-                disabledLabel="Unlocks Day 12"
-                label={task.label}
-                onToggle={() => {
-                  if (isLocked) return;
-                  dispatch({ type: "task", phase, role: "customer", id: task.id });
-                }}
-              />
-            );
-          })}
-        </div>
-        {!isDecisionWindow && (
-          <div className="customer-pulse-row">
+      {activeSurface === "slack" ? (
+        <AthenaSlackChannelView
+          isRampResolved={isRampResolved}
+          onGrantRampAccess={handleGrantRamp}
+          onCopyInstructions={() => {
+            const text = "Athena Club IT Instructions: Please grant Candidate M-402 (m-402@talent.mavi.work) read/approver permissions in Ramp (Settings > Roles & Permissions > Approver). Required for Phase 2 Shopify sales reconciliation.";
+            if (navigator?.clipboard?.writeText) {
+              navigator.clipboard.writeText(text);
+            }
+          }}
+          onOpenDossier={() => onModal("dossier")}
+          candidateHandle={state.trial.candidate.handle}
+          candidateTitle={state.trial.candidate.title}
+          clientName={state.trial.client.name}
+          activeDay={state.activeDay}
+        />
+      ) : (
+        <>
+          <div className="role-intro">
             <div>
-              <strong>{state.activeDay <= 7 ? "How is the first week going?" : "How is the review going?"}</strong>
-              <span>Your pulse is shared with MAVI, never directly with the candidate.</span>
+              <h2>
+                Your 14-day gameplan <span className="heading-context">CUSTOMER VIEW</span>
+              </h2>
+              <p>See what happens next, what’s waiting on your team, and where MAVI can help.</p>
             </div>
-            <Button className="button-primary" onClick={() => onModal("pulse")} size="lg" type="button">
-              Send a progress pulse <ArrowRight size={15} />
-            </Button>
           </div>
-        )}
-      </section>
-      {pendingAccess.length > 0 && <section aria-label="Access requests needing your team" className="access-request-panel"><div><h3>Still needed from your team</h3><p>Access stays visible here until it’s ready, even as the trial moves forward.</p></div>{pendingAccess.map((item) => <div className="access-request" key={item.id}><span><AlertTriangle size={15} />{item.name} · waiting {elapsedLabel(item.updatedAtHoursAgo)}</span><button className="small-link" onClick={() => dispatch({ type: "access", id: item.id, status: "PROVISIONED" })} type="button">Mark as provided</button></div>)}</section>}
-      {isDecisionWindow && (
-        <section className={`conversion-panel ${state.trial.telemetry.converted ? "conversion-complete" : ""}`}>
-          <div><span className="conversion-kicker">DAYS 12–14 · RETAINER DECISION GATE</span><h3>{state.trial.telemetry.converted ? "You’ve chosen to move forward." : "Ready to bring this talent onto your team?"}</h3><p>{state.trial.telemetry.converted ? "This selection is recorded in the illustrative demo only." : "Review the trial together, then record your decision. No contract or billing is created."}</p></div>
-          {state.trial.telemetry.converted ? <span className="conversion-status"><CheckCircle2 size={16} />Selected in demo</span> : <Button className="button-primary" onClick={() => onModal("convert")} size="lg" type="button">Hire this candidate <ArrowRight size={15} /></Button>}
-        </section>
+
+          <CandidateIdentityStrip trial={state.trial} onInspect={() => onModal("dossier")} />
+          <section className="today-panel">
+            <div className="today-heading">
+              <h3>
+                What’s happening now{" "}
+                <span className="heading-context">
+                  DAY {state.activeDay} · {isDecisionWindow ? "DECISION GATE" : state.activeDay >= 8 ? "AUDIT & REVIEW" : phases.find((item) => item.id === phase)?.label.toUpperCase()}
+                </span>
+              </h3>
+              <span className="task-count">{tasks.filter((task) => task.completed).length} of {tasks.length} complete</span>
+            </div>
+            <div className="task-list">
+              {tasks.map((task) => {
+                const isHireTask = task.id === "hire-decision";
+                const isLocked = isHireTask && !isDecisionWindow;
+                return (
+                  <TaskRow
+                    key={task.id}
+                    completed={task.completed}
+                    disabled={isLocked}
+                    disabledLabel="Unlocks Day 12"
+                    label={task.label}
+                    onToggle={() => {
+                      if (isLocked) return;
+                      dispatch({ type: "task", phase, role: "customer", id: task.id });
+                    }}
+                  />
+                );
+              })}
+            </div>
+            {!isDecisionWindow && (
+              <div className="customer-pulse-row">
+                <div>
+                  <strong>{state.activeDay <= 7 ? "How is the first week going?" : "How is the review going?"}</strong>
+                  <span>Your pulse is shared with MAVI, never directly with the candidate.</span>
+                </div>
+                <Button className="button-primary" onClick={() => onModal("pulse")} size="lg" type="button">
+                  Send a progress pulse <ArrowRight size={15} />
+                </Button>
+              </div>
+            )}
+          </section>
+          {pendingAccess.length > 0 && (
+            <section aria-label="Access requests needing your team" className="access-request-panel">
+              <div>
+                <h3>Still needed from your team</h3>
+                <p>Access stays visible here until it’s ready, even as the trial moves forward.</p>
+              </div>
+              {pendingAccess.map((item) => (
+                <div className="access-request" key={item.id}>
+                  <span>
+                    <AlertTriangle size={15} />
+                    {item.name} · waiting {elapsedLabel(item.updatedAtHoursAgo)}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      className="small-link text-[var(--brand)] cursor-pointer"
+                      onClick={() => setActiveSurface("slack")}
+                      type="button"
+                    >
+                      View in #finance-athena
+                    </button>
+                    <button
+                      className="small-link cursor-pointer"
+                      onClick={() => dispatch({ type: "access", id: item.id, status: "PROVISIONED" })}
+                      type="button"
+                    >
+                      Mark as provided
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </section>
+          )}
+          {isDecisionWindow && (
+            <section className={`conversion-panel ${state.trial.telemetry.converted ? "conversion-complete" : ""}`}>
+              <div>
+                <span className="conversion-kicker">DAYS 12–14 · RETAINER DECISION GATE</span>
+                <h3>{state.trial.telemetry.converted ? "You’ve chosen to move forward." : "Ready to bring this talent onto your team?"}</h3>
+                <p>{state.trial.telemetry.converted ? "This selection is recorded in the illustrative demo only." : "Review the trial together, then record your decision. No contract or billing is created."}</p>
+              </div>
+              {state.trial.telemetry.converted ? (
+                <span className="conversion-status">
+                  <CheckCircle2 size={16} />Selected in demo
+                </span>
+              ) : (
+                <Button className="button-primary" onClick={() => onModal("convert")} size="lg" type="button">
+                  Hire this candidate <ArrowRight size={15} />
+                </Button>
+              )}
+            </section>
+          )}
+        </>
       )}
     </div>
   );
@@ -556,8 +676,7 @@ export default function TrialPortal() {
       <TopBar dispatch={dispatch} onReset={() => { dispatch({ type: "reset" }); showToast("Trial reset to its illustrative starting state"); }} state={state} />
       <main className="portal-main">
         <div className="role-surface" key={state.activeRole}>
-          {state.activeRole === "operator" && <TrialHeading role={state.activeRole} trial={trial} />}
-          {state.activeRole === "operator" && <OperatorDashboard key={trial.id} dispatch={dispatch} onPreviewFollowup={(id) => { setInterventionId(id); setModal("slack"); }} onToast={showToast} state={state} />}
+          {state.activeRole === "operator" && <OperatorDashboard dispatch={dispatch} onPreviewFollowup={(id) => { setInterventionId(id); setModal("slack"); }} onToast={showToast} state={state} />}
           {state.activeRole !== "operator" && (
             <div className="flex flex-col lg:flex-row items-start gap-6 w-full">
               <div className="flex-1 min-w-0 w-full space-y-4">

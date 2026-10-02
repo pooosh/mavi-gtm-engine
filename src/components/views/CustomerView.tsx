@@ -18,6 +18,7 @@ import {
   Zap,
 } from "lucide-react";
 import { SlackMark } from "@/components/brand/slack-mark";
+import { AthenaSlackChannelView } from "./AthenaSlackChannelView";
 
 export interface CustomerViewProps {
   currentDay?: number;
@@ -63,6 +64,7 @@ export function CustomerView({
   const [retainerConfirmed, setRetainerConfirmed] = useState(
     Boolean(state?.trial?.telemetry?.converted)
   );
+  const [activeSurface, setActiveSurface] = useState<"portal" | "slack">("portal");
 
   const clientName = state?.trial?.client?.name ?? "Athena Club";
   const candidateHandle = state?.trial?.candidate?.handle ?? "Candidate M-402";
@@ -215,11 +217,50 @@ export function CustomerView({
           </div>
         </div>
 
-        {/* Right side controls: Day Stepper + Slack Pill */}
-        <div className="flex items-center gap-3">
+        {/* Right side controls: Surface Toggle + Day Stepper */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Surface Segmented Toggle: [Web Portal | #finance-athena] */}
+          <div
+            className="inline-flex items-center p-0.5 rounded-lg border border-[var(--line)] bg-[var(--canvas)] text-xs"
+            role="tablist"
+            aria-label="Customer interface view mode"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeSurface === "portal"}
+              onClick={() => setActiveSurface("portal")}
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-normal transition-all cursor-pointer ${
+                activeSurface === "portal"
+                  ? "bg-white text-[var(--ink)] border border-[var(--line)]/60"
+                  : "text-[var(--soft-muted)] hover:text-[var(--ink)]"
+              }`}
+            >
+              <span>Web Portal</span>
+            </button>
+
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeSurface === "slack"}
+              onClick={() => setActiveSurface("slack")}
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-normal transition-all cursor-pointer ${
+                activeSurface === "slack"
+                  ? "bg-white text-[var(--ink)] border border-[var(--line)]/60"
+                  : "text-[var(--soft-muted)] hover:text-[var(--ink)]"
+              }`}
+            >
+              <SlackMark size={13} />
+              <span>#finance-athena</span>
+              {!isRampResolved && activeDay <= 2 && (
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--brand)] animate-pulse" title="1 action pending in Slack" />
+              )}
+            </button>
+          </div>
+
           {/* Day Stepper */}
           <div
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border border-slate-200 bg-white text-xs"
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border border-[var(--line)] bg-white text-xs"
             role="group"
             aria-label="Trial day stepper"
           >
@@ -227,82 +268,97 @@ export function CustomerView({
               type="button"
               onClick={() => handleDayStep(activeDay - 1)}
               disabled={activeDay <= 1}
-              className="p-1 rounded text-slate-500 hover:text-slate-800 hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none cursor-pointer transition-colors"
+              className="p-1 rounded text-[var(--muted-foreground)] hover:text-[var(--ink)] hover:bg-[var(--canvas)] disabled:opacity-30 disabled:pointer-events-none cursor-pointer transition-colors"
               aria-label="Previous trial day"
             >
               <ChevronLeft size={14} />
             </button>
-            <span className="font-semibold text-slate-800 tabular-nums tracking-tight px-1">
-              Day <b>{activeDay}</b> <span className="text-slate-400 font-normal">of 14</span>
+            <span className="font-normal text-[var(--ink)] tabular-nums tracking-tight px-1">
+              Day <b>{activeDay}</b> <span className="text-[var(--muted-foreground)]">of 14</span>
             </span>
             <button
               type="button"
               onClick={() => handleDayStep(activeDay + 1)}
               disabled={activeDay >= 14}
-              className="p-1 rounded text-slate-500 hover:text-slate-800 hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none cursor-pointer transition-colors"
+              className="p-1 rounded text-[var(--muted-foreground)] hover:text-[var(--ink)] hover:bg-[var(--canvas)] disabled:opacity-30 disabled:pointer-events-none cursor-pointer transition-colors"
               aria-label="Next trial day"
             >
               <ChevronRight size={14} />
             </button>
           </div>
-
-          {/* Slack Integration Pill */}
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-700">
-            <SlackMark size={14} />
-            <span>Connected to <strong className="text-slate-900 font-semibold">#finance-athena</strong></span>
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
-          </div>
         </div>
       </div>
 
       {/* ========================================================================= */}
-      {/* 2. MAIN 2-COLUMN EXECUTIVE WORKSPACE (7 Cols Left / 5 Cols Right) */}
+      {/* 2. MAIN WORKSPACE: SLACK CHANNEL OR 2-COLUMN EXECUTIVE WORKSPACE          */}
       {/* ========================================================================= */}
-      <div className="grid grid-cols-12 gap-6 items-start">
-        {/* ======================================================================= */}
-        {/* LEFT COLUMN: ACTION & DELIVERABLES (7 of 12 Cols · ~60%) */}
-        {/* ======================================================================= */}
-        <div className="col-span-12 lg:col-span-7 space-y-5">
-          {/* ACTION BANNER (Dynamic based on blockers) */}
-          {activeDay <= 2 && !isRampResolved ? (
-            <div className="rounded-xl border border-amber-200 bg-white p-4 space-y-3">
-              <div className="flex items-start justify-between gap-3">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="inline-block w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" aria-hidden="true" />
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-900">
-                      Action Needed
-                    </span>
-                    <span className="text-xs font-semibold text-amber-900">
-                      Grant Ramp Approver Access (Pending 28h)
-                    </span>
+      {activeSurface === "slack" ? (
+        <AthenaSlackChannelView
+          isRampResolved={isRampResolved}
+          onGrantRampAccess={handleGrantRamp}
+          onCopyInstructions={handleCopyInstructions}
+          onOpenDossier={onModal ? () => onModal("dossier") : undefined}
+          candidateHandle={candidateHandle}
+          candidateTitle={candidateTitle}
+          clientName={clientName}
+          activeDay={activeDay}
+          copiedInstructions={copiedInstructions}
+        />
+      ) : (
+        <div className="grid grid-cols-12 gap-6 items-start">
+          {/* ======================================================================= */}
+          {/* LEFT COLUMN: ACTION & DELIVERABLES (7 of 12 Cols · ~60%) */}
+          {/* ======================================================================= */}
+          <div className="col-span-12 lg:col-span-7 space-y-5">
+            {/* ACTION BANNER (Dynamic based on blockers) */}
+            {activeDay <= 2 && !isRampResolved ? (
+              <div className="rounded-xl border border-amber-200 bg-white p-4 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" aria-hidden="true" />
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-900">
+                        Action Needed
+                      </span>
+                      <span className="text-xs font-semibold text-amber-900">
+                        Grant Ramp Approver Access (Pending 28h)
+                      </span>
+                    </div>
+                    <p className="text-xs text-amber-800 leading-relaxed">
+                      Candidate M-402 has completed the initial setup, but needs Ramp read/approver access to begin reconciling Shopify sales disbursements against the NetSuite inventory ledger.
+                    </p>
                   </div>
-                  <p className="text-xs text-amber-800 leading-relaxed">
-                    Candidate M-402 has completed the initial setup, but needs Ramp read/approver access to begin reconciling Shopify sales disbursements against the NetSuite inventory ledger.
-                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2.5 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleGrantRamp}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs font-semibold transition-colors cursor-pointer"
+                  >
+                    <Check size={14} className="stroke-[2.5]" />
+                    <span>Mark as Granted</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveSurface("slack")}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50/60 hover:bg-indigo-50 text-[var(--brand)] text-xs font-normal transition-colors cursor-pointer"
+                  >
+                    <SlackMark size={13} />
+                    <span>View in #finance-athena</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleCopyInstructions}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-200 bg-white hover:bg-amber-50 text-amber-900 text-xs font-medium transition-colors cursor-pointer"
+                  >
+                    <Copy size={13} />
+                    <span>{copiedInstructions ? "Copied!" : "Copy IT Instructions"}</span>
+                  </button>
                 </div>
               </div>
-
-              <div className="flex flex-wrap items-center gap-2.5 pt-1">
-                <button
-                  type="button"
-                  onClick={handleGrantRamp}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs font-semibold transition-colors cursor-pointer"
-                >
-                  <Check size={14} className="stroke-[2.5]" />
-                  <span>Mark as Granted</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleCopyInstructions}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-200 bg-white hover:bg-amber-50 text-amber-900 text-xs font-medium transition-colors cursor-pointer"
-                >
-                  <Copy size={13} />
-                  <span>{copiedInstructions ? "Copied!" : "Copy IT Instructions"}</span>
-                </button>
-              </div>
-            </div>
           ) : (
             <div className="rounded-xl border border-emerald-200 bg-white p-3.5 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
@@ -545,6 +601,7 @@ export function CustomerView({
           </div>
         </div>
       </div>
+      )}
 
       {/* Private Note Modal */}
       {privateNoteOpen && (

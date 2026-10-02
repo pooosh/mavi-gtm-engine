@@ -210,13 +210,15 @@ export function VerticalTrialTimeline({
           style={{ top: lineStyle.top, height: lineStyle.height }}
           aria-hidden="true"
         />
-        {/* Filled progress rail — transitions on height */}
+        {/* Filled progress rail — GPU-accelerated transform scaleY */}
         <div
           className="vtt-rail vtt-rail-fill"
           style={{
             top: lineStyle.top,
-            height: lineStyle.fill,
-            transition: "height 0.45s cubic-bezier(0.4, 0, 0.2, 1)",
+            height: lineStyle.height,
+            transform: `scaleY(${lineStyle.height > 0 ? lineStyle.fill / lineStyle.height : 0})`,
+            transformOrigin: "top",
+            transition: "transform 0.45s cubic-bezier(0.4, 0, 0.2, 1)",
           }}
           aria-hidden="true"
         />

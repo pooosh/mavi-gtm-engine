@@ -208,6 +208,229 @@ export const trialTemplates: TrialWorkspace[] = [
     ],
     interventions: [],
   },
+  {
+    id: "graza",
+    initialDay: 3,
+    client: {
+      name: "Graza",
+      industry: "D2C · Packaged goods",
+      erp: "Shopify / QuickBooks",
+      timezone: "US Eastern",
+      deliverable: "Reconcile Shopify Q3 payouts with Chase merchant deposits.",
+    },
+    candidate: {
+      handle: "Candidate G-204",
+      title: "Senior E-Commerce Accountant",
+      pedigree: "Ex-KPMG Senior Associate · 3 yrs",
+      overlap: "5 hrs/day · 9:00 AM–2:00 PM ET",
+      tools: ["Shopify", "Chase", "QuickBooks", "Excel"],
+      hallucinationScore: 95,
+      auditSpeedup: 3.2,
+      challenge: "Identified $18,400 in unrecorded 2-day merchant transit reserves in a synthetic batch payout.",
+    },
+    workspace: {
+      region: "US-East",
+      clipboardDisabled: true,
+      downloadsDisabled: true,
+      slackStatus: "ACTIVE",
+    },
+    access: [
+      { id: "quickbooks", name: "QuickBooks Online · accountant", category: "ERP", status: "PROVISIONED", updatedAtHoursAgo: 12 },
+      { id: "shopify-export", name: "Shopify · raw sales ledger export", category: "FINTECH", status: "PENDING", updatedAtHoursAgo: 42 },
+      { id: "chase", name: "Chase Business · statements", category: "FINTECH", status: "PROVISIONED", updatedAtHoursAgo: 16 },
+      { id: "workspace", name: "Secure workspace", category: "SECURITY", status: "PROVISIONED", updatedAtHoursAgo: 30 },
+    ],
+    customerTasks: {
+      setup: [
+        { id: "workspace-ready", label: "Review secure workspace protocols", completed: true },
+        { id: "quickbooks-access", label: "Grant QuickBooks accountant seat", completed: true },
+        { id: "export-data", label: "Authorize Shopify raw sales CSV export", completed: false },
+        { id: "slack-invite", label: "Invite candidate to #finance-temp channel", completed: true },
+      ],
+      delivery: [
+        { id: "deposit-review", label: "Review merchant deposit ledger", completed: false },
+        { id: "transit-check", label: "Verify merchant transit reserve entries", completed: false },
+        { id: "payout-approval", label: "Sign off on Q3 reconciliation draft", completed: false },
+      ],
+      close: [
+        { id: "close-review", label: "Review final reconciliation workpapers", completed: false },
+        { id: "hire-decision", label: "Decide on talent retention agreement", completed: false },
+      ],
+    },
+    candidateTasks: {
+      setup: [
+        { id: "connect-workspace", label: "Connect to the US-East workspace", completed: true },
+        { id: "auth-quickbooks", label: "Authenticate QuickBooks access", completed: true },
+        { id: "confirm-shopify", label: "Confirm Shopify raw sales data", completed: false },
+        { id: "review-chart", label: "Review Chart of Accounts", completed: true },
+      ],
+      delivery: [
+        { id: "reconcile-chase", label: "Reconcile Chase deposits to Shopify payouts", completed: false },
+        { id: "flag-transit", label: "Audit 2-day transit reserves", completed: false },
+        { id: "summary-memo", label: "Prepare findings memo for controller", completed: false },
+      ],
+      close: [
+        { id: "handoff-notes", label: "Document procedure notes", completed: false },
+        { id: "walkthrough", label: "Walk through reconciliation with CFO", completed: false },
+      ],
+    },
+    telemetry: { ttfvHours: 64, sentiment: null, converted: false },
+    customerNotes: [],
+    candidateBlockers: [
+      { id: "shopify-data-missing", tool: "Shopify", issue: "Awaiting client controller authorization for raw order CSV export", day: 3, resolved: false },
+    ],
+    escalations: [
+      { id: "access-shopify-export", message: "Shopify sales ledger withheld pending controller approval (42h waiting)", source: "ACCESS", day: 3, resolved: false },
+      { id: "blocker-shopify-data", message: "Candidate idle for 14 hours; client controller is OOO today", source: "CANDIDATE", day: 3, resolved: false },
+    ],
+    interventions: [],
+  },
+  {
+    id: "hex",
+    initialDay: 4,
+    client: {
+      name: "Hex",
+      industry: "B2B SaaS · Analytics",
+      erp: "NetSuite",
+      timezone: "US Pacific",
+      deliverable: "Synthesize NetSuite billing schedules into ASC 606 revenue recognition.",
+    },
+    candidate: {
+      handle: "Candidate H-311",
+      title: "Technical Revenue Accountant",
+      pedigree: "Ex-EY Tech Practice · 4 yrs",
+      overlap: "5 hrs/day · 9:00 AM–2:00 PM PT",
+      tools: ["NetSuite", "Snowflake", "Stripe", "Excel"],
+      hallucinationScore: 97,
+      auditSpeedup: 3.6,
+      challenge: "Calculated multi-element contract allocation across usage-based tiered ARR.",
+    },
+    workspace: {
+      region: "US-West",
+      clipboardDisabled: true,
+      downloadsDisabled: true,
+      slackStatus: "ACTIVE",
+    },
+    access: [
+      { id: "netsuite", name: "NetSuite · read-only role", category: "ERP", status: "PROVISIONED", updatedAtHoursAgo: 10 },
+      { id: "snowflake-sso", name: "Snowflake · warehouse access", category: "SECURITY", status: "PENDING", updatedAtHoursAgo: 18 },
+      { id: "slack", name: "Slack · connect channel", category: "COMMUNICATION", status: "PROVISIONED", updatedAtHoursAgo: 24 },
+      { id: "workspace", name: "Secure workspace", category: "SECURITY", status: "PROVISIONED", updatedAtHoursAgo: 20 },
+    ],
+    customerTasks: {
+      setup: [
+        { id: "workspace-ready", label: "Review secure workspace protocols", completed: true },
+        { id: "netsuite-sso", label: "Grant NetSuite read-only access", completed: true },
+        { id: "snowflake-ticket", label: "Approve Snowflake IT access ticket", completed: false },
+        { id: "slack-invite", label: "Add candidate to #rev-ops Slack", completed: true },
+      ],
+      delivery: [
+        { id: "share-contracts", label: "Provide enterprise contract sample set", completed: true },
+        { id: "review-allocations", label: "Review ASC 606 allocation schedule", completed: false },
+        { id: "first-work-check", label: "Confirm draft revenue waterfall", completed: false },
+      ],
+      close: [
+        { id: "audit-memo", label: "Review ASC 606 technical position memo", completed: false },
+        { id: "hire-decision", label: "Decide whether to hire candidate", completed: false },
+      ],
+    },
+    candidateTasks: {
+      setup: [
+        { id: "connect-workspace", label: "Connect to US-West workspace", completed: true },
+        { id: "auth-netsuite", label: "Authenticate NetSuite SSO", completed: true },
+        { id: "confirm-snowflake", label: "Confirm Snowflake warehouse access", completed: false },
+        { id: "review-schedules", label: "Review billing schedules", completed: true },
+      ],
+      delivery: [
+        { id: "waterfall-draft", label: "Build ASC 606 revenue waterfall", completed: false },
+        { id: "multi-element-audit", label: "Audit multi-element contract allocations", completed: false },
+        { id: "memo-summary", label: "Draft technical accounting memo", completed: false },
+      ],
+      close: [
+        { id: "handoff-workpapers", label: "Prepare workpapers for auditor sign-off", completed: false },
+        { id: "walkthrough", label: "Walk through waterfall with VP Finance", completed: false },
+      ],
+    },
+    telemetry: { ttfvHours: 38, sentiment: null, converted: false },
+    customerNotes: [],
+    candidateBlockers: [],
+    escalations: [
+      { id: "access-snowflake", message: "Snowflake SSO pending IT provisioning ticket #4091 (18h elapsed)", source: "ACCESS", day: 4, resolved: false },
+    ],
+    interventions: [],
+  },
+  {
+    id: "feastables",
+    initialDay: 5,
+    client: {
+      name: "Feastables",
+      industry: "CPG · Food & Confectionery",
+      erp: "NetSuite",
+      timezone: "US Central",
+      deliverable: "Deliver 3-way match audit between EDI purchase orders and bill receipts.",
+    },
+    candidate: {
+      handle: "Candidate F-108",
+      title: "Cost & Inventory Accountant",
+      pedigree: "Ex-Grant Thornton · 3 yrs",
+      overlap: "5 hrs/day · 8:30 AM–1:30 PM CT",
+      tools: ["NetSuite", "SPS Commerce", "Ramp", "Excel"],
+      hallucinationScore: 98,
+      auditSpeedup: 3.8,
+      challenge: "Reconciled distributor freight variance to bill-of-lading records.",
+    },
+    workspace: {
+      region: "US-East",
+      clipboardDisabled: true,
+      downloadsDisabled: true,
+      slackStatus: "ACTIVE",
+    },
+    access: [
+      { id: "netsuite", name: "NetSuite · inventory role", category: "ERP", status: "PROVISIONED", updatedAtHoursAgo: 4 },
+      { id: "sps-edi", name: "SPS Commerce · EDI portal", category: "FINTECH", status: "PROVISIONED", updatedAtHoursAgo: 8 },
+      { id: "ramp", name: "Ramp · expense viewer", category: "FINTECH", status: "PROVISIONED", updatedAtHoursAgo: 6 },
+      { id: "workspace", name: "Secure workspace", category: "SECURITY", status: "PROVISIONED", updatedAtHoursAgo: 24 },
+    ],
+    customerTasks: {
+      setup: [
+        { id: "workspace-ready", label: "Review secure workspace protocols", completed: true },
+        { id: "netsuite-access", label: "Provision NetSuite inventory seat", completed: true },
+        { id: "edi-access", label: "Provision SPS Commerce read-only login", completed: true },
+        { id: "slack-invite", label: "Invite candidate to #cpg-finance channel", completed: true },
+      ],
+      delivery: [
+        { id: "share-edi-logs", label: "Share SPS EDI batch run receipts", completed: true },
+        { id: "review-variances", label: "Review freight variance exceptions", completed: false },
+        { id: "match-approval", label: "Sign off on 3-way match exceptions", completed: false },
+      ],
+      close: [
+        { id: "final-match-pack", label: "Review audit-ready 3-way match package", completed: false },
+        { id: "hire-decision", label: "Confirm retainer conversion", completed: false },
+      ],
+    },
+    candidateTasks: {
+      setup: [
+        { id: "connect-workspace", label: "Connect to US-East desktop", completed: true },
+        { id: "auth-netsuite", label: "Authenticate NetSuite credentials", completed: true },
+        { id: "auth-edi", label: "Verify EDI batch connection", completed: true },
+        { id: "confirm-ramp", label: "Verify Ramp access", completed: true },
+      ],
+      delivery: [
+        { id: "edi-po-audit", label: "Audit PO line items against EDI receipts", completed: true },
+        { id: "freight-variance", label: "Reconcile distributor freight billings", completed: false },
+        { id: "match-summary", label: "Assemble exception schedule", completed: false },
+      ],
+      close: [
+        { id: "workpapers", label: "Assemble audit workpapers", completed: false },
+        { id: "finance-review", label: "Present findings to Controller", completed: false },
+      ],
+    },
+    telemetry: { ttfvHours: 28.5, sentiment: null, converted: false },
+    customerNotes: [],
+    candidateBlockers: [],
+    escalations: [],
+    interventions: [],
+  },
 ];
 
 export function getTrialHealth(trial: TrialWorkspace): TrialHealth {
