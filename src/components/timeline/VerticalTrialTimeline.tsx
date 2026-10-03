@@ -184,8 +184,9 @@ export function VerticalTrialTimeline({
               type="button"
               onClick={() => handleDayStep(activeDay - 1)}
               disabled={activeDay <= 1}
-              className="vtt-nav-btn"
+              className="vtt-nav-btn cursor-pointer"
               aria-label="Previous day"
+              title="Previous day (press [)"
             >
               <ChevronLeft size={12} />
             </button>
@@ -193,8 +194,9 @@ export function VerticalTrialTimeline({
               type="button"
               onClick={() => handleDayStep(activeDay + 1)}
               disabled={activeDay >= 14}
-              className="vtt-nav-btn"
+              className="vtt-nav-btn cursor-pointer"
               aria-label="Next day"
+              title="Next day (press ])"
             >
               <ChevronRight size={12} />
             </button>
@@ -234,8 +236,9 @@ export function VerticalTrialTimeline({
               key={node.id}
               type="button"
               onClick={() => handleMilestoneClick(node.startDay)}
-              className={`vtt-row vtt-row-${node.status}`}
+              className={`vtt-row vtt-row-${node.status} cursor-pointer group`}
               aria-current={isActive ? "step" : undefined}
+              title={`Jump to Day ${node.startDay}: ${node.title}`}
             >
               {/* Dot */}
               <div

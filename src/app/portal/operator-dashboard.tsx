@@ -497,18 +497,49 @@ export function OperatorDashboard({
   const [triageMap, setTriageMap] = useState<Record<string, JevAccountTriage>>(INITIAL_TRIAGE);
   const [evaluating, setEvaluating] = useState(false);
   const [latestLatency, setLatestLatency] = useState(118);
+  const [isLiveApi, setIsLiveApi] = useState(false);
 
-  // Portfolio workspaces state to dynamically reflect issues and resolutions across all accounts
+  // Deterministic baseline hours for all 5 enterprise accounts
+  const INITIAL_ACCESS_BASELINES: Record<string, Record<string, number>> = {
+    athena: { netsuite: 8, ramp: 28, slack: 12, workspace: 24 },
+    tracedata: { quickbooks: 8, stripe: 76, slack: 12, workspace: 20 },
+    graza: { quickbooks: 12, "shopify-export": 42, chase: 16, workspace: 30 },
+    hex: { netsuite: 10, "snowflake-sso": 18, slack: 24, workspace: 20 },
+    feastables: { netsuite: 4, "sps-edi": 8, ramp: 6, workspace: 24 },
+  };
+
+  // Portfolio workspaces state to dynamically reflect issues, day progress, and resolutions across all accounts
   const [portfolioWorkspaces, setPortfolioWorkspaces] = useState<TrialWorkspace[]>(() =>
     structuredClone(trialTemplates)
   );
 
-  // Sync active trial when modified
+  // Sync active trial and advance all fleet accounts' SLA timers when activeDay traverses
   useEffect(() => {
+    const baselineDay = state.trial.initialDay;
+    const dayDelta = state.activeDay - baselineDay;
+
     setPortfolioWorkspaces((prev) =>
-      prev.map((acc) => (acc.id === state.trial.id ? state.trial : acc))
+      prev.map((acc) => {
+        const isCurrentActive = acc.id === state.trial.id;
+        const baseline = INITIAL_ACCESS_BASELINES[acc.id] ?? {};
+        const sourceTrial = isCurrentActive ? state.trial : acc;
+
+        const updatedAccess = sourceTrial.access.map((item) => {
+          if (item.status === "PROVISIONED") return item;
+          const baseHours = baseline[item.id] ?? item.updatedAtHoursAgo;
+          return {
+            ...item,
+            updatedAtHoursAgo: Math.max(0, baseHours + dayDelta * 24),
+          };
+        });
+
+        return {
+          ...sourceTrial,
+          access: updatedAccess,
+        };
+      })
     );
-  }, [state.trial]);
+  }, [state.activeDay, state.trial]);
 
   // Dedicated Slack Simulator modal
   const [slackModalOpen, setSlackModalOpen] = useState(false);
@@ -527,6 +558,7 @@ export function OperatorDashboard({
         if (data.results) {
           setTriageMap(data.results);
           setLatestLatency(data.latencyMs);
+          setIsLiveApi(Boolean(data.isLiveJev));
         }
       } catch {
         // Fallback initialized
@@ -538,7 +570,11 @@ export function OperatorDashboard({
   async function handleRefreshTriage() {
     setEvaluating(true);
     try {
+      const baselineDay = state.trial.initialDay;
+      const dayDelta = state.activeDay - baselineDay;
+
       const snapshots = portfolioWorkspaces.map((acc) => {
+        const accountDay = Math.min(14, Math.max(1, acc.initialDay + dayDelta));
         const pending = acc.access
           .filter((a) => a.status !== "PROVISIONED")
           .map((a) => ({
@@ -559,7 +595,7 @@ export function OperatorDashboard({
           id: acc.id,
           name: acc.client.name,
           industry: acc.client.industry,
-          day: acc.initialDay,
+          day: accountDay,
           candidateHandle: acc.candidate.handle,
           deliverable: acc.client.deliverable,
           pendingAccess: pending,
@@ -578,7 +614,12 @@ export function OperatorDashboard({
         const data: TriageResponse = await res.json();
         setTriageMap(data.results);
         setLatestLatency(data.latencyMs);
-        onToast(`Jev evaluated all accounts in ${data.latencyMs}ms · System One`);
+        setIsLiveApi(Boolean(data.isLiveJev));
+        onToast(
+          data.isLiveJev
+            ? `TypeSafe Jev (Live API) evaluated fleet in ${data.latencyMs}ms`
+            : `Jev evaluated all accounts in ${data.latencyMs}ms · System One`
+        );
       }
     } catch {
       onToast("Fleet evaluation refreshed");
@@ -587,18 +628,35 @@ export function OperatorDashboard({
     }
   }
 
-  // Pre-calculate issue counts for all 5 accounts dynamically
+  // Pre-calculate issue counts and dynamic day progress for all 5 accounts dynamically
   const accountsWithIssues = useMemo(() => {
+    const baselineDay = state.trial.initialDay;
+    const dayDelta = state.activeDay - baselineDay;
+
     return portfolioWorkspaces
       .map((template) => {
+        const currentDay = Math.min(14, Math.max(1, template.initialDay + dayDelta));
         const openEscalations = template.escalations.filter((e) => !e.resolved);
         const pendingAccess = template.access.filter((a) => a.status !== "PROVISIONED");
         const issueCount = openEscalations.length + (pendingAccess.length > 0 ? 1 : 0);
+
+        // Calculate dynamic SLA breaches
+        const maxElapsed = pendingAccess.length > 0
+          ? Math.max(0, ...pendingAccess.map((a) => a.updatedAtHoursAgo))
+          : 0;
+        const isSlaBreached = maxElapsed >= ACCESS_SLA_WARNING_HOURS;
+
         const triage = triageMap[template.id];
-        const riskScore = triage?.slaRiskScore.score ?? (issueCount > 1 ? 85 : issueCount === 1 ? 75 : 15);
+        let riskScore = triage?.slaRiskScore.score ?? (issueCount > 1 ? 85 : issueCount === 1 ? 75 : 12);
+        if (isSlaBreached && riskScore < 80) {
+          riskScore = Math.min(95, riskScore + 20);
+        } else if (!isSlaBreached && issueCount === 0) {
+          riskScore = 12;
+        }
 
         return {
           template,
+          currentDay,
           issueCount,
           riskScore,
           triage,
@@ -608,7 +666,7 @@ export function OperatorDashboard({
         if (b.issueCount !== a.issueCount) return b.issueCount - a.issueCount;
         return b.riskScore - a.riskScore;
       });
-  }, [portfolioWorkspaces, triageMap]);
+  }, [portfolioWorkspaces, triageMap, state.activeDay, state.trial.initialDay]);
 
   // Filter accounts by search query
   const filteredAccounts = useMemo(() => {
@@ -625,6 +683,7 @@ export function OperatorDashboard({
   // The highest priority account across the entire fleet — dynamically surfaced by Jev!
   const topCriticalAccount = accountsWithIssues[0] || {
     template: trialTemplates[0],
+    currentDay: state.activeDay,
     issueCount: 0,
     riskScore: 12,
     triage: INITIAL_TRIAGE["athena"],
@@ -864,7 +923,7 @@ export function OperatorDashboard({
                         No accounts match &ldquo;{searchQuery}&rdquo;
                       </div>
                     ) : (
-                      filteredAccounts.map(({ template, issueCount, riskScore }) => {
+                      filteredAccounts.map(({ template, currentDay, issueCount, riskScore }) => {
                         const isSelected = viewMode === "company" && trial.id === template.id;
                         const initial = template.client.name.charAt(0);
 
@@ -888,7 +947,7 @@ export function OperatorDashboard({
                                 )}
                               </div>
                               <span className="text-[10px] text-[var(--muted-foreground)] block truncate">
-                                Day {template.initialDay} · {template.candidate.handle}
+                                Day {currentDay} · {template.candidate.handle}
                               </span>
                             </div>
                             <div className="text-right shrink-0">
@@ -923,7 +982,7 @@ export function OperatorDashboard({
           </aside>
 
           {/* ── Main Canvas (Takes remaining width, smoothly expands & compresses) ── */}
-          <div className="flex-1 min-w-0 w-full flex flex-col gap-4">
+          <div className="flex-1 min-w-0 w-full flex flex-col gap-3">
             {/* ── Role Intro Header (Native across all roles) ── */}
             <div className="role-intro">
               <div>
@@ -941,7 +1000,7 @@ export function OperatorDashboard({
               </div>
 
               {viewMode === "hub" ? (
-                <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-2.5 flex-wrap">
                   {sidebarCollapsed && (
                     <Button
                       className="button-secondary"
@@ -954,9 +1013,18 @@ export function OperatorDashboard({
                     </Button>
                   )}
 
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] text-xs text-[var(--ink)] border border-[var(--line)] bg-white">
-                    <Sparkles size={13} className="text-[var(--brand)]" />
-                    <span>TypeSafe Jev · <strong className="font-normal tabular-nums">~{latestLatency}ms</strong></span>
+                  <span
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] text-xs text-[var(--ink)] border border-[var(--line)] bg-white"
+                    title={isLiveApi ? "TypeSafe Jev System 1: Live Cloud API connected (jev-1.13.0)" : "TypeSafe Jev System 1: Calibrated edge fallback (~120ms)"}
+                  >
+                    {isLiveApi ? (
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    ) : (
+                      <Sparkles size={13} className="text-[var(--brand)]" />
+                    )}
+                    <span>
+                      TypeSafe Jev{isLiveApi ? " (Live)" : ""} · <strong className="font-normal tabular-nums">~{latestLatency}ms</strong>
+                    </span>
                   </span>
 
                   <Button
@@ -1034,7 +1102,7 @@ export function OperatorDashboard({
             /* ═════════════════════════════════════════════════════════
                VIEW 1: OVERALL OPERATIONS HUB
                ═════════════════════════════════════════════════════════ */
-            <div className="w-full flex flex-col gap-4">
+            <div className="w-full flex flex-col gap-3">
               {/* 1. Jev Cross-Account Escalation Hub (Hero Priority Panel — Flat, No Nested Cards) */}
               <section className="today-panel" aria-label="Jev portfolio priority hub">
                 <div className="today-heading">
@@ -1046,7 +1114,7 @@ export function OperatorDashboard({
                         : "ALL CLIENT TRIALS HEALTHY"}
                     </span>
                   </h3>
-                  <span className="inline-flex items-center gap-1 text-[11px] font-normal text-[var(--ink)]">
+                  <span className="inline-flex items-center gap-1 text-xs font-normal text-[var(--ink)]">
                     {topCriticalAccount.issueCount > 0 ? (
                       <>
                         <AlertTriangle size={12} className="text-[var(--warning)]" />
@@ -1061,97 +1129,124 @@ export function OperatorDashboard({
                   </span>
                 </div>
 
-                {topCriticalAccount.issueCount === 0 ? (
-                  <div className="p-5 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3.5">
-                      <div className="w-10 h-10 rounded-lg bg-[var(--canvas)] text-[var(--brand)] border border-[var(--line)] flex items-center justify-center shrink-0">
-                        <CheckCircle2 size={22} />
+                <div
+                  key={topCriticalAccount.issueCount === 0 ? "all-clear" : topCriticalAccount.template.id}
+                  className="jev-triage-card"
+                >
+                  {topCriticalAccount.issueCount === 0 ? (
+                    <div className="p-4 sm:p-4.5 flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-[var(--canvas)] text-[var(--brand)] border border-[var(--line)] flex items-center justify-center shrink-0">
+                          <CheckCircle2 size={20} />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-normal text-[var(--ink)] m-0">
+                            Fleet Fully Unblocked
+                          </h4>
+                          <p className="text-xs text-[var(--muted-foreground)] mt-0.5 mb-0 leading-relaxed">
+                            Jev System 1: All active customer access provisioned. 5 working trials operating on schedule with zero blockers.
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="text-sm font-normal text-[var(--ink)] m-0">
-                          Fleet Fully Unblocked
-                        </h4>
-                        <p className="text-xs text-[var(--muted-foreground)] mt-1 mb-0 leading-relaxed">
-                          Jev System 1: All active customer access provisioned. 5 working trials operating on schedule with zero blockers.
-                        </p>
-                      </div>
-                    </div>
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-xs font-normal text-[var(--success)] border border-[var(--line)] bg-[var(--canvas)] shrink-0">
-                      <span className="w-2 h-2 rounded-full bg-[var(--success)]" />
-                      100% Provisioned
-                    </span>
-                  </div>
-                ) : (
-                  <div className="p-4 sm:p-5 flex flex-col gap-3.5">
-                    <div className="flex items-start gap-3">
-                      <div className="w-9 h-9 rounded-lg bg-[var(--canvas)] text-[var(--ink)] border border-[var(--line)] flex items-center justify-center shrink-0">
-                        <LockKeyhole size={18} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-normal text-[var(--ink)] m-0">
-                          {topTriage.primaryBlocker || "Access Provisioning Bottleneck"}
-                        </h4>
-                        <p className="text-xs text-[var(--muted-foreground)] mt-1 mb-0 leading-relaxed">
-                          {topTriage.rationale}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* 3-Part Jev Decision Strip — Flat hairline dividers, zero nested cards */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 py-3 border-y border-[var(--line)] text-left">
-                      <div className="sm:pr-4">
-                        <span className="block text-[10px] uppercase tracking-wider text-[var(--soft-muted)] font-normal">
-                          Blocker Probability (Noul)
-                        </span>
-                        <strong className="block text-base font-normal text-[var(--ink)] mt-0.5 tabular-nums">
-                          {Math.round(topTriage.isCriticalBlocker.noul * 100)}%
-                        </strong>
-                      </div>
-                      <div className="sm:border-x sm:border-[var(--line)] sm:px-4 py-2 sm:py-0">
-                        <span className="block text-[10px] uppercase tracking-wider text-[var(--soft-muted)] font-normal">
-                          SLA Risk Score (Score)
-                        </span>
-                        <strong className="block text-base font-normal text-[var(--ink)] mt-0.5 tabular-nums">
-                          {topTriage.slaRiskScore.score} <small className="text-xs font-normal text-[var(--muted-foreground)]">/ 100</small>
-                        </strong>
-                      </div>
-                      <div className="sm:pl-4">
-                        <span className="block text-[10px] uppercase tracking-wider text-[var(--soft-muted)] font-normal">
-                          Recommended Action (Choice)
-                        </span>
-                        <strong className="block text-xs font-normal text-[var(--brand)] mt-1 truncate">
-                          {topTriage.recommendedAction.choice.replace(/_/g, " ")} ({Math.round(topTriage.recommendedAction.confidence * 100)}% conf)
-                        </strong>
-                      </div>
-                    </div>
-
-                    {/* Action Bar */}
-                    <div className="flex items-center justify-between gap-3 pt-2 flex-wrap">
-                      <div className="flex items-center gap-2">
-                        <Button
-                          className="button-primary"
-                          onClick={() => {
-                            setActiveSlackTriage(topTriage);
-                            setSlackModalOpen(true);
-                          }}
-                        >
-                          <SlackMark size={15} />
-                          1-Click Dispatch Slack Nudge to {topCriticalAccount.template.client.name}
-                        </Button>
-                        <Button
-                          className="button-secondary"
-                          variant="outline"
-                          onClick={() => openCompanyDashboard(topCriticalAccount.template.id)}
-                        >
-                          Open {topCriticalAccount.template.client.name} Dashboard <ArrowRight size={13} className="ml-1" />
-                        </Button>
-                      </div>
-                      <span className="text-[10px] text-[var(--muted-foreground)] tabular-nums">
-                        ~{topTriage.latencyMs}ms System One latency · Zero hallucinations
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-xs font-normal text-[var(--success)] border border-[var(--line)] bg-[var(--canvas)] shrink-0">
+                        <span className="w-2 h-2 rounded-full bg-[var(--success)]" />
+                        100% Provisioned
                       </span>
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <div className="p-3.5 sm:p-4 flex flex-col gap-2.5">
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-[var(--canvas)] text-[var(--ink)] border border-[var(--line)] flex items-center justify-center shrink-0">
+                          <LockKeyhole size={16} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-sm font-normal text-[var(--ink)] m-0 leading-snug">
+                            {topTriage.primaryBlocker || "Access Provisioning Bottleneck"}
+                          </h4>
+                          <p className="text-xs text-[var(--muted-foreground)] mt-0.5 mb-0 leading-relaxed">
+                            {topTriage.rationale}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* 3-Part Jev Decision Strip — Flat hairline dividers, zero nested cards */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 py-2 border-y border-[var(--line)] text-left">
+                        <div
+                          className="sm:pr-4 cursor-help"
+                          title="Jev Noul Model: Evaluates candidate idle time probability without operator intervention"
+                        >
+                          <span className="block text-[10px] uppercase tracking-wider text-[var(--soft-muted)] font-normal">
+                            Blocker Probability (Noul)
+                          </span>
+                          <strong className="block text-base font-normal text-[var(--ink)] mt-0.5 tabular-nums">
+                            {Math.round(topTriage.isCriticalBlocker.noul * 100)}%
+                          </strong>
+                          <span className="inline-flex items-center gap-1 text-[10px] text-amber-800 bg-amber-50 border border-amber-200/80 px-1.5 py-0.5 rounded mt-1 font-normal">
+                            High Stall Risk · Idle
+                          </span>
+                        </div>
+                        <div
+                          className="sm:border-x sm:border-[var(--line)] sm:px-4 py-2 sm:py-0 cursor-help"
+                          title="Jev Score Model: Predicts SLA breach severity across the 14-day flight path (0-100)"
+                        >
+                          <span className="block text-[10px] uppercase tracking-wider text-[var(--soft-muted)] font-normal">
+                            SLA Risk Score (Score)
+                          </span>
+                          <strong className="block text-base font-normal text-[var(--ink)] mt-0.5 tabular-nums">
+                            {topTriage.slaRiskScore.score} <small className="text-xs font-normal text-[var(--muted-foreground)]">/ 100</small>
+                          </strong>
+                          <span className="inline-flex items-center gap-1 text-[10px] text-red-800 bg-red-50 border border-red-200/80 px-1.5 py-0.5 rounded mt-1 font-normal">
+                            SLA Warning Breached
+                          </span>
+                        </div>
+                        <div
+                          className="sm:pl-4 cursor-help"
+                          title="Jev Choice Model: Selects optimal unblocking intervention with probabilistic ranking"
+                        >
+                          <span className="block text-[10px] uppercase tracking-wider text-[var(--soft-muted)] font-normal">
+                            Recommended Action (Choice)
+                          </span>
+                          <strong className="block text-xs font-normal text-[var(--brand)] mt-0.5 truncate">
+                            {topTriage.recommendedAction.choice.replace(/_/g, " ")} ({Math.round(topTriage.recommendedAction.confidence * 100)}% conf)
+                          </strong>
+                          <span className="inline-flex items-center gap-1 text-[10px] text-indigo-800 bg-indigo-50 border border-indigo-200/80 px-1.5 py-0.5 rounded mt-1 font-normal">
+                            1-Click Nudge to Controller
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Action Bar */}
+                      <div className="flex items-center justify-between gap-3 pt-1.5 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            className="button-primary"
+                            title={`Preview and dispatch structured Slack nudge to ${topCriticalAccount.template.client.name} channel`}
+                            onClick={() => {
+                              setActiveSlackTriage(topTriage);
+                              setSlackModalOpen(true);
+                            }}
+                          >
+                            <SlackMark size={15} />
+                            1-Click Dispatch Slack Nudge to {topCriticalAccount.template.client.name}
+                          </Button>
+                          <Button
+                            className="button-secondary"
+                            variant="outline"
+                            onClick={() => openCompanyDashboard(topCriticalAccount.template.id)}
+                          >
+                            Open {topCriticalAccount.template.client.name} Dashboard <ArrowRight size={13} className="ml-1" />
+                          </Button>
+                        </div>
+                        <span
+                          className="text-[10px] text-[var(--muted-foreground)] tabular-nums cursor-help"
+                          title="Evaluated in real-time across 5 enterprise trial accounts via TypeSafe Jev System 1 · Zero hallucinations"
+                        >
+                          ~{topTriage.latencyMs}ms System One latency · Zero hallucinations
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </section>
 
               {/* 2. Active Trial Flight Path (Portfolio Matrix — Flat Table) */}
@@ -1168,16 +1263,16 @@ export function OperatorDashboard({
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
                       <tr className="border-b border-[var(--line)] text-[10px] uppercase tracking-wider text-[var(--soft-muted)] bg-[var(--canvas)]/40">
-                        <th className="py-2.5 px-4 font-normal">Client Account</th>
-                        <th className="py-2.5 px-3 font-normal">Candidate</th>
-                        <th className="py-2.5 px-3 font-normal">Timeline</th>
-                        <th className="py-2.5 px-3 font-normal">Access SLA Status</th>
-                        <th className="py-2.5 px-3 font-normal">Jev Risk</th>
-                        <th className="py-2.5 px-4 text-right font-normal">Action</th>
+                        <th className="py-2 px-3.5 font-normal">Client Account</th>
+                        <th className="py-2 px-3 font-normal">Candidate</th>
+                        <th className="py-2 px-3 font-normal">Timeline</th>
+                        <th className="py-2 px-3 font-normal">Access SLA Status</th>
+                        <th className="py-2 px-3 font-normal">Jev Risk</th>
+                        <th className="py-2 px-3.5 text-right font-normal">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[var(--line)]">
-                      {accountsWithIssues.map(({ template, issueCount, riskScore }) => {
+                      {accountsWithIssues.map(({ template, currentDay, issueCount, riskScore }) => {
                         const pending = template.access.filter((a) => a.status !== "PROVISIONED");
                         const elapsed = Math.max(0, ...pending.map((a) => a.updatedAtHoursAgo));
                         const isBreached = elapsed >= ACCESS_SLA_WARNING_HOURS;
@@ -1195,9 +1290,9 @@ export function OperatorDashboard({
                               }
                             }}
                             aria-label={`Open ${template.client.name} trial dashboard`}
-                            className="hover:bg-[var(--canvas)] transition-colors cursor-pointer group focus-visible:outline-2 focus-visible:outline-[var(--brand)]"
+                            className="flight-path-row hover:bg-[var(--canvas)] transition-colors cursor-pointer group focus-visible:outline-2 focus-visible:outline-[var(--brand)]"
                           >
-                            <td className="py-3 px-4">
+                            <td className="py-2 px-3.5">
                               <span className="font-normal text-[var(--ink)] block group-hover:text-[var(--brand)] transition-colors">
                                 {template.client.name}
                               </span>
@@ -1205,7 +1300,7 @@ export function OperatorDashboard({
                                 {template.client.industry}
                               </span>
                             </td>
-                            <td className="py-3 px-3">
+                            <td className="py-2 px-3">
                               <span className="text-[var(--ink)] block font-normal">
                                 {template.candidate.handle}
                               </span>
@@ -1213,15 +1308,15 @@ export function OperatorDashboard({
                                 {template.candidate.title}
                               </span>
                             </td>
-                            <td className="py-3 px-3 tabular-nums">
+                            <td className="py-2 px-3 tabular-nums">
                               <span className="text-[var(--ink)] block">
-                                Day {template.initialDay} <span className="text-[var(--muted-foreground)]">of 14</span>
+                                Day {currentDay} <span className="text-[var(--muted-foreground)]">of 14</span>
                               </span>
                               <span className="text-[10px] text-[var(--muted-foreground)] block">
-                                {template.initialDay <= 2 ? "System setup" : template.initialDay <= 7 ? "First work" : "Decision"}
+                                {currentDay <= 2 ? "System setup" : currentDay <= 7 ? "First work" : "Decision"}
                               </span>
                             </td>
-                            <td className="py-3 px-3 tabular-nums">
+                            <td className="py-2 px-3 tabular-nums">
                               {pending.length > 0 ? (
                                 <div>
                                   <span className={isBreached ? "text-[var(--risk)] font-normal" : "text-[var(--muted-foreground)]"}>
@@ -1235,7 +1330,7 @@ export function OperatorDashboard({
                                 <span className="text-[var(--success)] font-normal">100% Provisioned</span>
                               )}
                             </td>
-                            <td className="py-3 px-3 tabular-nums">
+                            <td className="py-2 px-3 tabular-nums">
                               <span className="text-[var(--ink)] block font-normal">
                                 {riskScore} <span className="text-[var(--muted-foreground)]">/ 100</span>
                               </span>
@@ -1243,7 +1338,7 @@ export function OperatorDashboard({
                                 {issueCount > 0 ? `${issueCount} issues` : "Clear"}
                               </span>
                             </td>
-                            <td className="py-3 px-4 text-right">
+                            <td className="py-2 px-3.5 text-right">
                               <span className="inline-flex items-center gap-1 text-[var(--brand)] text-xs font-normal">
                                 Open Trial <ArrowRight size={11} />
                               </span>

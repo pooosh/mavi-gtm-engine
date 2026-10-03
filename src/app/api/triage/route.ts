@@ -195,8 +195,12 @@ async function evaluateWithLiveTypeSafe(
       signal: AbortSignal.timeout(4000),
     });
 
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.warn(`[TypeSafe API] Call failed with status ${res.status}: ${res.statusText}`);
+      return null;
+    }
     const data = await res.json();
+    console.log(`[TypeSafe API] Live Jev System 1 evaluated ${account.name} in ${Date.now() - startTime}ms (${data.model})`);
     const answers = data.answers;
 
     const noulVal = answers.is_critical_blocker?.noul ?? 0.5;
@@ -399,18 +403,29 @@ export async function POST(req: Request) {
   const results: Record<string, JevAccountTriage> = {};
 
   if (apiKey) {
-    // Attempt live evaluation
-    const livePromises = accountsToTriage.map((acc) =>
-      evaluateWithLiveTypeSafe(acc, apiKey)
-    );
-    const liveResults = await Promise.all(livePromises);
-    const allSucceeded = liveResults.every((res) => res !== null);
+    // Attempt live evaluation via TypeSafe System 1
+    try {
+      const livePromises = accountsToTriage.map((acc) =>
+        evaluateWithLiveTypeSafe(acc, apiKey)
+      );
+      const liveResults = await Promise.all(livePromises);
+      const anySucceeded = liveResults.some((res) => res !== null);
 
-    if (allSucceeded) {
-      isLive = true;
-      liveResults.forEach((res) => {
-        if (res) results[res.accountId] = res;
-      });
+      if (anySucceeded) {
+        isLive = true;
+        liveResults.forEach((res, idx) => {
+          if (res) {
+            results[res.accountId] = res;
+          } else {
+            results[accountsToTriage[idx].id] = evaluateWithCalibratedFallback(
+              accountsToTriage[idx],
+              Date.now() - reqStart
+            );
+          }
+        });
+      }
+    } catch {
+      // Graceful fallback to calibrated evaluation
     }
   }
 

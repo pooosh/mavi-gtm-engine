@@ -10,6 +10,7 @@ target_fingerprint: "sha256:ca058ab5ac87aa46b760a1678bba20e9f3f6c929dc7022812cda
 target_path: /Users/piyush/Projects/Startups/mavi-gtm-engine/src/app/portal/operator-dashboard.tsx
 timestamp: 2026-10-01T23-47-11Z
 slug: src-app-portal-operator-dashboard-tsx
+closed: true
 ---
 ## Design Health Score
 

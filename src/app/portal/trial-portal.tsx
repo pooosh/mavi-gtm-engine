@@ -168,16 +168,49 @@ function TopBar({ state, dispatch, onReset }: { state: TrialOSState; dispatch: R
   const isOperator = state.activeRole === "operator";
   return (
     <header className="topbar">
-      <a aria-label="MAVI Trial OS" className="brand-lockup" href="/portal">
-        <MaviMark /><span className="brand-name">MAVI</span><span className="brand-divider" /><span className="product-name">Trial OS</span>
-      </a>
-      <div className="demo-label"><span className="demo-dot" /> Demo preview · illustrative data</div>
-      {isOperator && (
-        <div className="topbar-actions">
-          <button aria-label="Reset demo" className="icon-button" onClick={onReset} title="Reset demo" type="button"><RotateCcw size={16} /></button>
-          <div aria-hidden="true" className="operator-avatar">P</div>
+      <div className="flex items-center gap-3 min-w-0">
+        <a aria-label="MAVI Trial OS" className="brand-lockup shrink-0" href="/portal">
+          <MaviMark /><span className="brand-name">MAVI</span><span className="brand-divider" /><span className="product-name">Trial OS</span>
+        </a>
+        <div className="demo-label"><span className="demo-dot" /> Demo preview · illustrative data</div>
+      </div>
+      <div className="topbar-actions">
+        {/* Global Demo Timeline Day Control */}
+        <div className="topbar-day-control" aria-label="Trial timeline day scrubber">
+          <button
+            aria-label="Previous day"
+            className="topbar-day-btn cursor-pointer"
+            disabled={state.activeDay <= 1}
+            onClick={() => dispatch({ type: "day", day: state.activeDay - 1 })}
+            title="Previous day (press [)"
+            type="button"
+          >
+            <ChevronLeft size={13} />
+          </button>
+          <span className="topbar-day-label">
+            Day <strong className="tabular-nums font-normal text-[var(--ink)]">{state.activeDay}</strong> <span className="topbar-day-total">of 14</span>
+          </span>
+          <button
+            aria-label="Next day"
+            className="topbar-day-btn cursor-pointer"
+            disabled={state.activeDay >= 14}
+            onClick={() => dispatch({ type: "day", day: state.activeDay + 1 })}
+            title="Next day (press ])"
+            type="button"
+          >
+            <ChevronRight size={13} />
+          </button>
         </div>
-      )}
+
+        {isOperator && (
+          <>
+            <button aria-label="Reset demo" className="icon-button cursor-pointer" onClick={onReset} title="Reset demo" type="button">
+              <RotateCcw size={15} />
+            </button>
+            <div aria-hidden="true" className="operator-avatar">P</div>
+          </>
+        )}
+      </div>
     </header>
   );
 }
@@ -277,7 +310,7 @@ function CustomerView({ state, dispatch, onModal }: { state: TrialOSState; dispa
             role="tab"
             aria-selected={activeSurface === "portal"}
             onClick={() => setActiveSurface("portal")}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-normal transition-all cursor-pointer ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-normal transition-colors duration-150 cursor-pointer ${
               activeSurface === "portal"
                 ? "bg-white text-[var(--ink)] shadow-none border border-[var(--line)]/60"
                 : "text-[var(--soft-muted)] hover:text-[var(--ink)]"
@@ -291,7 +324,7 @@ function CustomerView({ state, dispatch, onModal }: { state: TrialOSState; dispa
             role="tab"
             aria-selected={activeSurface === "slack"}
             onClick={() => setActiveSurface("slack")}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-normal transition-all cursor-pointer ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-normal transition-colors duration-150 cursor-pointer ${
               activeSurface === "slack"
                 ? "bg-white text-[var(--ink)] shadow-none border border-[var(--line)]/60"
                 : "text-[var(--soft-muted)] hover:text-[var(--ink)]"
@@ -670,6 +703,32 @@ export default function TrialPortal() {
   }
 
   useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if (modal !== null) return;
+
+      if (e.key === "[" || (e.altKey && e.key === "ArrowLeft")) {
+        e.preventDefault();
+        dispatch({ type: "day", day: Math.max(1, state.activeDay - 1) });
+      } else if (e.key === "]" || (e.altKey && e.key === "ArrowRight")) {
+        e.preventDefault();
+        dispatch({ type: "day", day: Math.min(14, state.activeDay + 1) });
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [state.activeDay, modal]);
 
   return (
     <div className={`portal-shell role-${state.activeRole}`}>

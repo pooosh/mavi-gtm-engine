@@ -1,8 +1,11 @@
-.role-operator.portal-shell { padding-bottom: 40px; }
-.role-operator .portal-main { padding-top: 16px; padding-bottom: 24px; }
-.role-operator .trial-heading { margin-bottom: 12px; }
-.role-operator .breadcrumb { margin-bottom: 6px; }
+.role-operator.portal-shell { padding-bottom: 96px; }
+.role-operator .portal-main { padding-top: 14px; padding-bottom: 32px; }
+.role-operator .trial-heading { margin-bottom: 10px; }
+.role-operator .breadcrumb { margin-bottom: 4px; }
 .role-operator .portal-footer { min-height: 40px; }
+.role-operator .role-intro { margin-bottom: 0; }
+.role-operator .today-panel { margin-top: 0; }
+.role-operator .today-heading { min-height: 42px; padding: 0 16px; }
 
 /* ─────────────────────────────────────────────────────────────
    Smooth Collapsible Left Sidebar (Pushes components responsively)
@@ -11,7 +14,7 @@
 .operator-workspace-grid {
   display: grid;
   grid-template-columns: 276px minmax(0, 1fr);
-  gap: 20px;
+  gap: 16px;
   align-items: start;
   width: 100%;
   transition: grid-template-columns 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -771,6 +774,36 @@
   font-weight: 400;
 }
 
+.jev-triage-card {
+  animation: jev-triage-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.flight-path-row {
+  transition: background-color 0.12s ease;
+}
+
+.flight-path-row:active {
+  background-color: var(--bone);
+}
+
+.escalation-actionbar > button:active,
+.operator-bento-toolbar button:active {
+  transform: scale(0.985);
+  transition: transform 0.08s ease;
+}
+
+@keyframes jev-triage-in {
+  from {
+    opacity: 0.65;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @keyframes trial-event-in {
   from { opacity: .5; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
@@ -781,6 +814,31 @@
 }
 @keyframes dossier-out {
   to { opacity: 0; transform: translateX(30px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jev-triage-card {
+    animation: jev-triage-reduced 0.12s ease-out;
+    transform: none !important;
+  }
+  .trial-activity-list li {
+    animation: none;
+    transform: none !important;
+  }
+  .candidate-dossier-drawer[data-state="open"],
+  .candidate-dossier-drawer[data-state="closed"] {
+    animation: none;
+    transform: none !important;
+  }
+  .escalation-actionbar > button:active,
+  .operator-bento-toolbar button:active {
+    transform: none !important;
+  }
+}
+
+@keyframes jev-triage-reduced {
+  from { opacity: 0.8; }
+  to { opacity: 1; }
 }
 
 @media (min-width: 1101px) and (max-height: 820px) {

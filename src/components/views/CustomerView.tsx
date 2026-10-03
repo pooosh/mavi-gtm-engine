@@ -230,7 +230,7 @@ export function CustomerView({
               role="tab"
               aria-selected={activeSurface === "portal"}
               onClick={() => setActiveSurface("portal")}
-              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-normal transition-all cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-normal transition-colors duration-150 cursor-pointer ${
                 activeSurface === "portal"
                   ? "bg-white text-[var(--ink)] border border-[var(--line)]/60"
                   : "text-[var(--soft-muted)] hover:text-[var(--ink)]"
@@ -244,7 +244,7 @@ export function CustomerView({
               role="tab"
               aria-selected={activeSurface === "slack"}
               onClick={() => setActiveSurface("slack")}
-              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-normal transition-all cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-normal transition-colors duration-150 cursor-pointer ${
                 activeSurface === "slack"
                   ? "bg-white text-[var(--ink)] border border-[var(--line)]/60"
                   : "text-[var(--soft-muted)] hover:text-[var(--ink)]"
@@ -270,10 +270,11 @@ export function CustomerView({
               disabled={activeDay <= 1}
               className="p-1 rounded text-[var(--muted-foreground)] hover:text-[var(--ink)] hover:bg-[var(--canvas)] disabled:opacity-30 disabled:pointer-events-none cursor-pointer transition-colors"
               aria-label="Previous trial day"
+              title="Previous day (press [)"
             >
               <ChevronLeft size={14} />
             </button>
-            <span className="font-normal text-[var(--ink)] tabular-nums tracking-tight px-1">
+            <span className="font-normal text-[var(--ink)] tabular-nums tracking-tight px-1 select-none">
               Day <b>{activeDay}</b> <span className="text-[var(--muted-foreground)]">of 14</span>
             </span>
             <button
@@ -282,6 +283,7 @@ export function CustomerView({
               disabled={activeDay >= 14}
               className="p-1 rounded text-[var(--muted-foreground)] hover:text-[var(--ink)] hover:bg-[var(--canvas)] disabled:opacity-30 disabled:pointer-events-none cursor-pointer transition-colors"
               aria-label="Next trial day"
+              title="Next day (press ])"
             >
               <ChevronRight size={14} />
             </button>
@@ -312,7 +314,7 @@ export function CustomerView({
           <div className="col-span-12 lg:col-span-7 space-y-5">
             {/* ACTION BANNER (Dynamic based on blockers) */}
             {activeDay <= 2 && !isRampResolved ? (
-              <div className="rounded-xl border border-amber-200 bg-white p-4 space-y-3">
+              <div key="action-needed" className="action-banner-card rounded-xl border border-amber-200 bg-white p-4 space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
@@ -352,22 +354,31 @@ export function CustomerView({
                   <button
                     type="button"
                     onClick={handleCopyInstructions}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-200 bg-white hover:bg-amber-50 text-amber-900 text-xs font-medium transition-colors cursor-pointer"
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all duration-150 cursor-pointer ${
+                      copiedInstructions
+                        ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+                        : "border-amber-200 bg-white hover:bg-amber-50 text-amber-900"
+                    }`}
+                    title="Copy formatted IT provisioning instructions to clipboard"
                   >
-                    <Copy size={13} />
-                    <span>{copiedInstructions ? "Copied!" : "Copy IT Instructions"}</span>
+                    {copiedInstructions ? (
+                      <Check size={13} className="text-emerald-600 stroke-[2.5] checkmark-pop" />
+                    ) : (
+                      <Copy size={13} />
+                    )}
+                    <span>{copiedInstructions ? "Copied to clipboard" : "Copy IT Instructions"}</span>
                   </button>
                 </div>
               </div>
           ) : (
-            <div className="rounded-xl border border-emerald-200 bg-white p-3.5 flex items-center justify-between gap-3">
+            <div key="action-cleared" className="action-banner-card rounded-xl border border-emerald-200 bg-white p-3.5 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
                 <CheckCircle2 size={18} className="text-emerald-600 flex-shrink-0" />
                 <div>
                   <span className="text-xs font-bold text-emerald-900 block">
                     All Core Systems Provisioned
                   </span>
-                  <span className="text-[11px] text-emerald-700">
+                  <span className="text-xs text-emerald-700">
                     Candidate M-402 is unblocked and actively executing {activePhase.title.toLowerCase()}.
                   </span>
                 </div>
@@ -389,9 +400,17 @@ export function CustomerView({
                   {activePhase.label}
                 </h3>
               </div>
-              <span className="text-xs tabular-nums text-slate-500">
-                {activePhase.tasks.filter((t) => t.done).length} of {activePhase.tasks.length} Completed
-              </span>
+              <div className="text-right">
+                {activePhase.tasks.filter((t) => t.done).length === activePhase.tasks.length ? (
+                  <span className="inline-flex items-center gap-1 text-xs font-normal text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded checkmark-pop">
+                    <Check size={11} strokeWidth={2.5} /> Deliverables Complete
+                  </span>
+                ) : (
+                  <span className="text-xs tabular-nums text-slate-500">
+                    {activePhase.tasks.filter((t) => t.done).length} of {activePhase.tasks.length} Completed
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Clean Checkbox Task Items */}
@@ -409,7 +428,7 @@ export function CustomerView({
                 >
                   <div className="mt-0.5 flex-shrink-0">
                     {task.done ? (
-                      <div className="w-4 h-4 rounded bg-emerald-600 text-white flex items-center justify-center">
+                      <div className="w-4 h-4 rounded bg-emerald-600 text-white flex items-center justify-center checkmark-pop">
                         <Check size={11} className="stroke-[3]" />
                       </div>
                     ) : (task as any).pending ? (
@@ -434,7 +453,7 @@ export function CustomerView({
                       {task.title}
                     </span>
                     {(task as any).pending && (
-                      <span className="text-[11px] text-amber-700 block mt-0.5">
+                      <span className="text-xs text-amber-700 block mt-0.5">
                         Waiting on Athena IT action · Pending 28h
                       </span>
                     )}
@@ -444,7 +463,7 @@ export function CustomerView({
                     <button
                       type="button"
                       onClick={handleGrantRamp}
-                      className="text-[11px] font-semibold text-indigo-700 hover:text-indigo-900 underline underline-offset-2 flex-shrink-0 cursor-pointer"
+                      className="text-xs font-semibold text-indigo-700 hover:text-indigo-900 underline underline-offset-2 flex-shrink-0 cursor-pointer"
                     >
                       Grant now
                     </button>
@@ -506,7 +525,7 @@ export function CustomerView({
 
               {/* Core Tools Badges */}
               <div className="pt-2 border-t border-slate-100 space-y-1.5">
-                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
                   Core Tool Stack
                 </span>
                 <div className="flex flex-wrap gap-1.5">
@@ -523,7 +542,7 @@ export function CustomerView({
 
               {/* Security Assurance */}
               <div className="pt-2 border-t border-slate-100">
-                <span className="inline-flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
+                <span className="inline-flex items-center gap-1.5 text-xs text-slate-500 font-medium">
                   <ShieldCheck size={14} className="text-emerald-600" />
                   SOC 2 Type II Virtual Desktop · Dedicated US-East Hypervisor
                 </span>
