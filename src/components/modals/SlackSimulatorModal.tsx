@@ -12,34 +12,7 @@ import {
 import { CheckCircle2, Sparkles, X } from "lucide-react";
 import type { JevAccountTriage } from "@/types/jev";
 
-function MaviMark({ size = 20 }: { size?: number }) {
-  return (
-    <svg
-      aria-hidden="true"
-      className="mavi-mark"
-      fill="none"
-      height={size}
-      viewBox="0 0 36 30"
-      width={size * (36 / 30)}
-      style={{ flexShrink: 0, display: "inline-block" }}
-    >
-      <path
-        d="M4 24.5V5.5c0-1.1 1.3-1.6 2.1-.8L18 17.8 29.9 4.7c.8-.8 2.1-.3 2.1.8v19"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2.6"
-      />
-      <path
-        d="M4 24.5c0 1.1 1.3 1.6 2.1.8L18 12.2 29.9 25.3c.8.8 2.1.3 2.1-.8"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2.6"
-      />
-    </svg>
-  );
-}
+import { MaviMark } from "@/components/brand/mavi-logo";
 
 export interface SlackSimulatorModalProps {
   open: boolean;

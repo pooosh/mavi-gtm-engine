@@ -27,6 +27,7 @@ import {
 import { FormEvent, useEffect, useReducer, useRef, useState } from "react";
 import { OperatorDashboard } from "./operator-dashboard";
 import { SlackMark } from "@/components/brand/slack-mark";
+import { MaviLogo, MaviMark } from "@/components/brand/mavi-logo";
 import { AthenaSlackChannelView } from "@/components/views/AthenaSlackChannelView";
 import { VerticalTrialTimeline } from "@/components/timeline/VerticalTrialTimeline";
 import { Badge } from "@/components/ui/badge";
@@ -56,23 +57,6 @@ const phases: Array<{ id: PhaseKey; label: string; days: string; name: string }>
   { id: "delivery", label: "First work", days: "Days 3–7", name: "Prove the work" },
   { id: "close", label: "Review", days: "Days 8–14", name: "Decide what’s next" },
 ];
-
-function MaviMark({ size = 24 }: { size?: number }) {
-  return (
-    <svg
-      aria-hidden="true"
-      className="mavi-mark"
-      width={Math.round((size * 36) / 30)}
-      height={size}
-      viewBox="0 0 36 30"
-      fill="none"
-      style={{ flexShrink: 0, display: "inline-block" }}
-    >
-      <path d="M4 24.5V5.5c0-1.1 1.3-1.6 2.1-.8L18 17.8 29.9 4.7c.8-.8 2.1-.3 2.1.8v19" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M4 24.5c0 1.1 1.3 1.6 2.1.8L18 12.2 29.9 25.3c.8.8 2.1.3 2.1-.8" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
 
 function elapsedLabel(hours: number) {
   if (hours >= 48) return `${Math.floor(hours / 24)}d ${hours % 24}h`;
@@ -170,7 +154,7 @@ function TopBar({ state, dispatch, onReset }: { state: TrialOSState; dispatch: R
     <header className="topbar">
       <div className="flex items-center gap-3 min-w-0">
         <a aria-label="MAVI Trial OS" className="brand-lockup shrink-0" href="/portal">
-          <MaviMark /><span className="brand-name">MAVI</span><span className="brand-divider" /><span className="product-name">Trial OS</span>
+          <MaviLogo height={24} /><span className="brand-divider" /><span className="product-name">Trial OS</span>
         </a>
         <div className="demo-label"><span className="demo-dot" /> Demo preview · illustrative data</div>
       </div>
@@ -747,7 +731,7 @@ export default function TrialPortal() {
           )}
         </div>
       </main>
-      <footer className="portal-footer"><span><MaviMark /> MAVI Trial OS</span><span>14-day activation room · <b>local state</b></span><button onClick={() => showToast("Scenario data is illustrative. No real client or candidate account is connected.")} type="button"><CircleHelp size={14} />About this demo</button></footer>
+      <footer className="portal-footer"><span><MaviMark size={16} /> MAVI Trial OS</span><span>14-day activation room · <b>local state</b></span><button onClick={() => showToast("Scenario data is illustrative. No real client or candidate account is connected.")} type="button"><CircleHelp size={14} />About this demo</button></footer>
       <div aria-live="polite" role="status">
         {toast && (
           <div className="toast-message">
