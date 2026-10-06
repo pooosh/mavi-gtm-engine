@@ -31,7 +31,10 @@ export function SlackSimulatorModal({
 
   if (!triage) return null;
 
-  const channelName = `trial-${triage.accountName.toLowerCase().replace(/[^a-z0-9]/g, "-")}`;
+  const channelName =
+    triage.accountId === "athena"
+      ? "finance-athena"
+      : `trial-${triage.accountName.toLowerCase().replace(/[^a-z0-9]/g, "-")}`;
   const blockerName = triage.primaryBlocker || "Access provisioning";
 
   function handleDispatch() {

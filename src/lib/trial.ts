@@ -44,6 +44,7 @@ export interface TrialWorkspace {
     clipboardDisabled: boolean;
     downloadsDisabled: boolean;
     slackStatus: "ACTIVE" | "PENDING" | "DISABLED";
+    slackNudgeDispatched?: boolean;
   };
   access: TrialAccess[];
   customerTasks: { setup: TrialTask[]; delivery: TrialTask[]; close: TrialTask[] };
@@ -85,6 +86,7 @@ export const trialTemplates: TrialWorkspace[] = [
       clipboardDisabled: true,
       downloadsDisabled: true,
       slackStatus: "ACTIVE",
+      slackNudgeDispatched: false,
     },
     access: [
       { id: "netsuite", name: "NetSuite · read-only role", category: "ERP", status: "PROVISIONED", updatedAtHoursAgo: 8 },
@@ -490,7 +492,7 @@ export type TrialAction =
   | { type: "pulse"; rating: PulseRating; note: string }
   | { type: "customer-note"; category: string; note: string }
   | { type: "candidate-blocker"; tool: string; issue: string }
-  | { type: "operator-nudge"; message: string }
+  | { type: "operator-nudge"; message?: string; channel?: "slack" | "email" }
   | { type: "resolve-escalation"; id: string }
   | { type: "convert" }
   | { type: "reset" };
@@ -605,7 +607,16 @@ export function trialReducer(state: TrialOSState, action: TrialAction): TrialOSS
     trial.candidateBlockers = [...trial.candidateBlockers, { id, tool: action.tool, issue: action.issue.trim(), day: state.activeDay, resolved: false }];
     trial.escalations = [...trial.escalations, { id, message: `Candidate blocked on ${action.tool}`, source: "CANDIDATE", day: state.activeDay, resolved: false }];
   } else if (action.type === "operator-nudge") {
-    trial.interventions = [...trial.interventions, { id: `intervention-${Date.now()}`, message: action.message, day: state.activeDay }];
+    const msg =
+      action.message ||
+      (action.channel === "slack"
+        ? "MAVI Trial Bot Block Kit nudge dispatched to #finance-athena"
+        : "Automated SLA nudge sent to client");
+    trial.interventions = [
+      ...trial.interventions,
+      { id: `intervention-${Date.now()}`, message: msg, day: state.activeDay },
+    ];
+    trial.workspace = { ...trial.workspace, slackNudgeDispatched: true };
   } else if (action.type === "resolve-escalation") {
     const noteId = action.id.startsWith("report-") ? action.id.slice("report-".length) : action.id;
     trial.escalations = trial.escalations.map((entry) => entry.id === action.id ? { ...entry, resolved: true } : entry);

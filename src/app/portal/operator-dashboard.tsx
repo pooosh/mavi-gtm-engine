@@ -541,6 +541,46 @@ export function OperatorDashboard({
     );
   }, [state.activeDay, state.trial]);
 
+  // Automatically update Athena triage to healthy when Ramp access is provisioned
+  useEffect(() => {
+    const isAthenaRampResolved =
+      state.trial.id === "athena" &&
+      state.trial.access.find((a) => a.id === "ramp")?.status === "PROVISIONED";
+    if (isAthenaRampResolved && triageMap["athena"]?.compositeRisk > 15) {
+      setTriageMap((prev) => ({
+        ...prev,
+        athena: {
+          ...prev.athena,
+          isCriticalBlocker: { type: "noul", noul: 0.04 },
+          slaRiskScore: {
+            type: "score",
+            score: 12,
+            probabilities: { "0": 0.95 },
+            confidence: 0.96,
+          },
+          recommendedAction: {
+            type: "choice",
+            choice: "MONITOR_SCHEDULE",
+            probabilities: {
+              MONITOR_SCHEDULE: 0.95,
+              DISPATCH_SLACK_NUDGE: 0.03,
+              REPLAN_OFFLINE_TASK: 0.02,
+            },
+            confidence: 0.96,
+          },
+          compositeRisk: 12,
+          priorityRank: 5,
+          rationale:
+            "Jev System 1: Ramp approver access provisioned. Milestone delivery resumed.",
+          primaryBlocker: "All systems provisioned",
+          actionSummary: "Monitor schedule; milestone delivery on track",
+          suggestedTarget: "Ramp",
+          evaluatedAt: new Date().toISOString(),
+        },
+      }));
+    }
+  }, [state.trial, triageMap]);
+
   // Dedicated Slack Simulator modal
   const [slackModalOpen, setSlackModalOpen] = useState(false);
   const [activeSlackTriage, setActiveSlackTriage] = useState<JevAccountTriage | null>(null);
@@ -693,9 +733,79 @@ export function OperatorDashboard({
     INITIAL_TRIAGE[topCriticalAccount?.template.id || "graza"] ||
     INITIAL_TRIAGE["graza"];
 
-  // Handler to resolve an account's issue when Slack nudge is dispatched
+  // Handler to dispatch Slack nudge to an account's trial channel
   function handleDispatchNudge(accId: string) {
-    // 1. Mark this account's issues as provisioned/resolved in portfolioWorkspaces
+    if (accId === "athena") {
+      // For Athena Club: Dispatch Slack nudge without approving Ramp access
+      setPortfolioWorkspaces((prev) =>
+        prev.map((acc) => {
+          if (acc.id !== "athena") return acc;
+          const updated = structuredClone(acc);
+          if (!updated.workspace) {
+            updated.workspace = {
+              region: "US-East",
+              clipboardDisabled: true,
+              downloadsDisabled: true,
+              slackStatus: "ACTIVE",
+              slackNudgeDispatched: true,
+            };
+          } else {
+            updated.workspace.slackNudgeDispatched = true;
+          }
+          updated.interventions.push({
+            id: `intervention-${Date.now()}`,
+            message: `Slack nudge dispatched to #finance-athena channel.`,
+            day: updated.initialDay,
+          });
+          return updated;
+        })
+      );
+
+      // If currently active trial is Athena Club, dispatch operator-nudge action (sets slackNudgeDispatched, keeps Ramp access pending)
+      if (state.trial.id === "athena") {
+        dispatch({ type: "operator-nudge", channel: "slack" });
+      }
+
+      const latency = Math.floor(112 + Math.random() * 15);
+      setLatestLatency(latency);
+      setTriageMap((prev) => ({
+        ...prev,
+        athena: {
+          ...prev.athena,
+          isCriticalBlocker: { type: "noul", noul: 0.22 },
+          slaRiskScore: {
+            type: "score",
+            score: 32,
+            probabilities: { "1": 0.82 },
+            confidence: 0.92,
+          },
+          recommendedAction: {
+            type: "choice",
+            choice: "MONITOR_SCHEDULE",
+            probabilities: {
+              MONITOR_SCHEDULE: 0.88,
+              DISPATCH_SLACK_NUDGE: 0.08,
+              REPLAN_OFFLINE_TASK: 0.04,
+            },
+            confidence: 0.94,
+          },
+          compositeRisk: 30,
+          priorityRank: 4,
+          rationale:
+            "Jev System 1: Slack nudge dispatched to #finance-athena. Awaiting client authorization.",
+          primaryBlocker: "Ramp approver permissions (nudge dispatched)",
+          actionSummary: "Nudge dispatched to #finance-athena · Awaiting client approval",
+          suggestedTarget: "Ramp · roles & permissions",
+          evaluatedAt: new Date().toISOString(),
+          latencyMs: latency,
+        },
+      }));
+
+      onToast("Slack nudge dispatched to #finance-athena");
+      return;
+    }
+
+    // Default flow for other fleet accounts
     setPortfolioWorkspaces((prev) =>
       prev.map((acc) => {
         if (acc.id !== accId) return acc;
@@ -721,7 +831,6 @@ export function OperatorDashboard({
       })
     );
 
-    // If currently viewing this account in company view, update global state
     if (state.trial.id === accId) {
       for (const item of state.trial.access) {
         if (item.status !== "PROVISIONED") {
@@ -735,7 +844,6 @@ export function OperatorDashboard({
       }
     }
 
-    // 2. Recalculate Jev's System 1 inference for this account to healthy
     const latency = Math.floor(112 + Math.random() * 15);
     setLatestLatency(latency);
     setTriageMap((prev) => ({
@@ -770,6 +878,75 @@ export function OperatorDashboard({
     }));
 
     onToast(`1-Click Slack nudge dispatched to #${accId} · Jev surfaced next priority`);
+  }
+
+  // Explicit resolution handler (e.g. when clicking "Mark provided")
+  function handleResolveAccount(accId: string) {
+    setPortfolioWorkspaces((prev) =>
+      prev.map((acc) => {
+        if (acc.id !== accId) return acc;
+        const updated = structuredClone(acc);
+        updated.access = updated.access.map((item) => ({
+          ...item,
+          status: "PROVISIONED",
+        }));
+        updated.escalations = updated.escalations.map((e) => ({
+          ...e,
+          resolved: true,
+        }));
+        updated.candidateBlockers = updated.candidateBlockers.map((b) => ({
+          ...b,
+          resolved: true,
+        }));
+        return updated;
+      })
+    );
+
+    if (state.trial.id === accId) {
+      for (const item of state.trial.access) {
+        if (item.status !== "PROVISIONED") {
+          dispatch({ type: "access", id: item.id, status: "PROVISIONED" });
+        }
+      }
+      for (const esc of state.trial.escalations) {
+        if (!esc.resolved) {
+          dispatch({ type: "resolve-escalation", id: esc.id });
+        }
+      }
+    }
+
+    const latency = Math.floor(112 + Math.random() * 15);
+    setLatestLatency(latency);
+    setTriageMap((prev) => ({
+      ...prev,
+      [accId]: {
+        ...prev[accId],
+        isCriticalBlocker: { type: "noul", noul: 0.04 },
+        slaRiskScore: {
+          type: "score",
+          score: 12,
+          probabilities: { "0": 0.95 },
+          confidence: 0.96,
+        },
+        recommendedAction: {
+          type: "choice",
+          choice: "MONITOR_SCHEDULE",
+          probabilities: {
+            MONITOR_SCHEDULE: 0.95,
+            DISPATCH_SLACK_NUDGE: 0.03,
+            REPLAN_OFFLINE_TASK: 0.02,
+          },
+          confidence: 0.96,
+        },
+        compositeRisk: 12,
+        priorityRank: 5,
+        rationale: "Jev System 1: All critical access provisioned; milestone delivery resumed.",
+        primaryBlocker: "All systems provisioned",
+        actionSummary: "Monitor schedule; milestone delivery on track",
+        evaluatedAt: new Date().toISOString(),
+        latencyMs: latency,
+      },
+    }));
   }
 
   function openCompanyDashboard(companyId: string) {
@@ -1477,7 +1654,14 @@ export function OperatorDashboard({
                               type: "resolve-escalation",
                               id: activeEscalation.id,
                             });
-                            handleDispatchNudge(trial.id);
+                            if (access) {
+                              dispatch({
+                                type: "access",
+                                id: access.id,
+                                status: "PROVISIONED",
+                              });
+                            }
+                            handleResolveAccount(trial.id);
                             onToast(
                               access
                                 ? "Access provided in demo · candidate can now confirm their tool"
